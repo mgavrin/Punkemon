@@ -254,21 +254,21 @@ class menu:
     def pickStarter(self,name):
         if name=="Bulbasaur":
             starterMon=Bulbasaur(5,"Bulbasaur")
-            secondMon=Eevee(80,"Eevee")
-            thirdMon=Vaporeon(80,"Vaporeon")
+            #secondMon=Eevee(80,"Eevee")
+            #thirdMon=Vaporeon(80,"Vaporeon")
             garyMon=Charmander(5,"Charmander")
         elif name=="Charmander":
             starterMon=Charmander(5,"Charmander")
-            secondMon=Squirtle(5,"Squirtle")
+            #secondMon=Squirtle(5,"Squirtle")
             garyMon=Squirtle(5,"Squirtle")
         elif name=="Squirtle":
             starterMon=Squirtle(5,"Squirtle")
-            secondMon=Squirtle(5,"Squirtle")
+            #secondMon=Squirtle(5,"Squirtle")
             garyMon=Bulbasaur(5,"Bulbasaur")
         starterMon.trainer=self.screen.player
-        secondMon.trainer=self.screen.player
-        thirdMon.trainer=self.screen.player
-        self.screen.player.team=[starterMon,secondMon,thirdMon]
+        #secondMon.trainer=self.screen.player
+        #thirdMon.trainer=self.screen.player
+        self.screen.player.team=[starterMon]#,secondMon,thirdMon]
         garyMon.trainer=Gary
         Gary.team=[garyMon]
         self.screen.switchTo('world')

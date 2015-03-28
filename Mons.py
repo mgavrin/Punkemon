@@ -414,7 +414,7 @@ class Flareon(punkemon):
     def __init__(self,level,name="Flareon",trainer=False):
         self.evolveStone=False
         self.evolveLevel=False
-        learnDict={0:tackle,1:sandAttack,2:quickAttack,3:ember,27:quickAttack,31:ember,37:tailWhip,40:bite,42:leer,44:fireSpin,54:flameThrower}#add rage maybe
+        learnDict={0:tackle,1:sandAttack,2:quickAttack,3:ember,27:quickAttack,31:ember,37:tailWhip,40:bite,42:leer,44:fireSpin,54:flamethrower}#add rage maybe
         punkemon.__init__(self,"Flareon",["Fire"],16,level,"fast",[130,60,65,65,110],198,learnDict,name,trainer)
 
 class Derp(punkemon):
