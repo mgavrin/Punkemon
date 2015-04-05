@@ -86,38 +86,20 @@ def safeCopy(source):
 ################### Menu stuff ############################
 allMenus=[]
 class menu:
-    def __init__(self,oplist,mode,backOut=True,nextMenuMeta="previous",nextMenu=False,rollable=False,screen=False):
+    def __init__(self,oplist,mode,execOnA,execOnS,rollable=False,screen=False):
         #rollable means being on the bottom option and hitting "down" gets you the top option
         self.oplist=oplist
         self.curPos=1 #current position of cursor, ONE-indexed
         self.rollable=rollable
         self.mode=mode #"choice" or "dialog", controls whether there's a moving cursor
-        self.backOut=backOut #if False, s does nothing
-        self.nextMenuMeta=nextMenuMeta
-        #default of previous menu, can be set to "menu" for a specific nonprevious menu or False if it always goes back to world
-        self.nextMenu=nextMenu
+        self.execOnA=execOnA
+        self.execOnS=execOnS
         self.curSlide=1
         self.maxChars=screenWidth-2
         self.maxLines=4
         self.maxSlides=5
         self.screen=screen
-        allMenus.append(self)
-        
-    def setNext(self,target): #sets menu to return to upon pressing B
-        self.nextMenu=target
-
-    def getNext(self): #returns nextMenu
-        return self.nextMenu
-
-    def switchMenu(self,newOptions,newMode=False):#switches to a new menu, in a new mode if necessary
-        if newMode:
-            self.curMode=newMode
-        if isinstance(newOptions,str):
-            self.oplist=eval(newOptions)
-        else:
-            self.oplist=newOptions
-        self.length=len(self.oplist)
-        self.curPos=1
+        allMenus.append(self)    
 
     def getArray(self):
         if self.mode=="choice":
@@ -201,10 +183,6 @@ class menu:
         lastLine.append("*BR")
         diAr.append(lastLine)
         return(diAr)
-
-
-    def setOptions(self,newList):
-        self.oplist=newList
         
     def moveCursor(self,direction):
         if direction=="up":
@@ -231,46 +209,48 @@ class menu:
             elif event.key==K_DOWN:
                 self.moveCursor("down")
             elif event.key==K_a:
-                
-                if isinstance(self.nextMenu,str): #if it's time to do something that isn't a menu, do it.
-                    exec(self.nextMenu)
-                else:
-                    self.switchToNext()
-            elif event.key==K_s and self.backOut:
-##                if isinstance(self.nextMenu,str):
-##                    exec(nextThing)
-##                else:
-                screen.activeMenus=screen.activeMenus[:-1]
+                exec(self.execOnA)
+            elif event.key==K_s:
+                exec(self.execOnS)
 
-                #(comment written months after line) god this is so weird,
-                                                #why does hitting back get you a thing called the next menu,
-                                                #which is actually the previous menu,
-                                                #god my past self was a tit
-
-    def switchToNext(self):
-        oldMenu=self
-        newMenu=menuDict[self.oplist[self.curPos-1]].evaluatedCopy()
-        self.screen.activeMenus.append(newMenu)
-        if newMenu.nextMenuMeta=="previous":
-            newMenu.setNext(oldMenu)
-        
     def processInputDialog(self, event, screen):
         if event.type==KEYDOWN:
             if self.curSlide<len(self.oplist):
                 self.curSlide+=1
-            else:
-                oldMenu=self
-                newMenu=oldMenu.nextMenu
-                print newMenu
-                if isinstance(newMenu,str): #if it's time to do something that isn't a menu, do it.
-                    exec(newMenu)
-                else:
-                    self.screen.activeMenus[-1]=newMenu
-                    if newMenu.nextMenuMeta=="previous":
-                        newMenu.setNext(oldMenu)
-                    self.curSlide=1
+            elif event.key==K_a:
+                exec(self.execOnA)
+            elif event.key==K_s:
+                exec(self.execOnS)
+
+
+    def mutateToNewMenu(self,newOptions,newMode=False):#Deprecated.
+        #mutates the mode and oplist while retaining the stack and the execOn code.
+        #Deprecated.
+        if newMode:
+            self.curMode=newMode
+        if isinstance(newOptions,str):
+            self.oplist=eval(newOptions)
+        else:
+            self.oplist=newOptions
+        self.length=len(self.oplist)
+        self.curPos=1
+
+    def replaceMenu(self,newMenuInstance):
+        self.screen.activeMenus[-1]=newMenuInstance
+
+    def backUpMenuStack(self):
+        self.screen.activeMenus=self.screen.activeMenus[:-1]
+
+    def addToMenuStack(self):
+        #Gets a new menu from the menudict and adds it to the screen, while keeping the old menu visible behind it.
+        #Use when going to a menu that should revert to the previous menu on pressing "S".
+        oldMenu=self
+        newMenu=menuDict[self.oplist[self.curPos-1]].evaluatedCopy()
+        self.screen.activeMenus.append(newMenu)
 
     def evaluatedCopy(self):
+        #Returns a menu that is the same as self, but with the oplist evaluated if necessary.
+        #Use for menus where the oplist depends on the game state and you don't want to mutate.
         if isinstance(self.oplist,str):
             newOplist=eval(self.oplist)
             return menu(newOplist,self.mode,self.backOut,self.nextMenuMeta,self.nextMenu,self.rollable,self.screen)
@@ -278,7 +258,7 @@ class menu:
         else:
             return self
                     
-########## Incidental menu-class functions that get run during menus at some point in the game.
+########## Incidental menu-class functions that get run during menus at some point in the game. The execOnAs and execOnSs of various menus.
 ########## These will probably proliferate. It's alright. Didn't Tom Lehrer tell you? Proliferation is the word of the day.
     def pickStarter(self,name):
         if name=="Bulbasaur":
@@ -288,11 +268,9 @@ class menu:
             garyMon=Charmander(5,"Charmander")
         elif name=="Charmander":
             starterMon=Charmander(5,"Charmander")
-            #secondMon=Squirtle(5,"Squirtle")
             garyMon=Squirtle(5,"Squirtle")
         elif name=="Squirtle":
             starterMon=Squirtle(5,"Squirtle")
-            #secondMon=Squirtle(5,"Squirtle")
             garyMon=Bulbasaur(5,"Bulbasaur")
         starterMon.trainer=self.screen.player
         #secondMon.trainer=self.screen.player
@@ -1723,39 +1701,39 @@ worldFGSpriteDict["@"]=player
 
 
 rivalName="Should Not Display"
-###### Menu instances (self,oplist,mode,backOut=True,nextMenuMeta="previous",nextMenu=False,rollable=False) sorted by world or speaker
-placeholderMenu=menu(["You should never see this."],"dialog")
+###### Menu instances (self,oplist,mode,execOnA,execOnS,rollable=False,screen=False) sorted by world or speaker
+placeholderMenu=menu(["You should never see this."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
 ########### Typha menus
-falseChoice=menu(["Boy","Girl"],"choice",False)
-nickChoice=menu(["ASSHAT","ASSFACE","BUTTHAT","BUTTFACE","FACEHAT","ASSBUTT",'"GARY"'],"choice",False,"menu","garyActionable.trainer.name=self.oplist[self.curPos-1]\nself.switchToNext()")
-starterMonChoice=menu(["Bulbasaur","Charmander","Squirtle"],"choice",False,"menu","self.pickStarter(self.oplist[self.curPos-1])")
-noDice=menu(["Since it seems I can't talk either of you two out of it~","Your adventure in the world of PUNKEMON fighting starts NOW. Grab a mon and get going!"],"dialog",False,"menu",starterMonChoice)
-doItAnyway=menu(["You can't scare me.","I'm gonna be the best!"],"choice",False,"menu",noDice)
-talkOut=menu(["I'll tell you what I told him:\nThe fighting circuit ain't no nursery school.","You've got a better chance of ending up in jail or a body bag than as a PUNKEMON CHAMPION."],"dialog",False,"menu",doItAnyway)
+falseChoice=menu(["Boy","Girl"],"choice","Red.gender=self.oplist[self.curPos-1]\nself.replaceMenu(boy)","pass")
+nickChoice=menu(["ASSHAT","ASSFACE","BUTTHAT","BUTTFACE","FACEHAT","ASSBUTT",'"GARY"'],"choice","garyActionable.trainer.name=self.oplist[self.curPos-1]\nself.replaceMenu(eval(garyActionable.trainer.name.lower()))","pass")
+starterMonChoice=menu(["Bulbasaur","Charmander","Squirtle"],"choice","self.pickStarter(self.oplist[self.curPos-1])","pass")
+noDice=menu(["Since it seems I can't talk either of you two out of it~","Your adventure in the world of PUNKEMON fighting starts NOW. Grab a mon and get going!"],"dialog","self.replaceMenu(starterMonChoice)","pass")
+doItAnyway=menu(["You can't scare me.","I'm gonna be the best!"],"choice","self.replaceMenu(noDice)","pass")
+talkOut=menu(["I'll tell you what I told him:\nThe fighting circuit ain't no nursery school.","You've got a better chance of ending up in jail or a body bag than as a PUNKEMON CHAMPION."],"dialog","self.replaceMenu(doItAnyway)","pass")
 Intro=menu(["Yo!\nWelcome to the world of Punkemon~","My name is TYPHA.\nPeople in this hood, they call me the PUNKEMON PROFESSA.",
                   "There are creatures called PUNKEMON all up in dis world.","Some people think PUNKEMON are monsters.\nAin't totally wrong~","Some people keep 'em as pets.\nOthers use them in fights.",
                   "Me, I used to do that.\nNow I'm goin' straight.","I'm gonna study PUNKEMON as a profession.\nLab coat and everything.","When you're hiding behind that computer, it's hard to tell who you are.",
-                  "Are you a boy, or a girl?"],"dialog",False,"menu",falseChoice)
-boy=menu(["You remember my little bro.\nYou've been at each other's throats ever since you were kids.","What was your charming nickname for him again?"],"dialog",False,"menu",nickChoice)
+                  "Are you a boy, or a girl?"],"dialog","self.replaceMenu(falseChoice)","pass")
+boy=menu(["You remember my little bro.\nYou've been at each other's throats ever since you were kids.","What was your charming nickname for him again?"],"dialog","self.replaceMenu(nickChoice)","pass")
 girl=boy #code as political statement, or lazy programmer? #bothisgood
-asshat=menu(['Oh, yeah. "Asshat."Ha! You have such a way with words~'],"dialog",False,"menu",talkOut)
-assface=menu(['Oh, yeah. "Assface."Ha!  You have such a way with words~'],"dialog",False,"menu",talkOut)
-butthat=menu(['Oh, yeah. "Butthat." Ha! You have such a way with words~'],"dialog",False,"menu",talkOut)
-buttface=menu(['Oh, yeah. "Buttface." Ha! You have such a way with words~'],"dialog",False,"menu",talkOut)
-facehat=menu(['Oh, yeah. "Facehat." Ha! You have such a way with words~'],"dialog",False,"menu",talkOut)
-assbutt=menu(['Oh, yeah. "Assbutt." Ha! You have such a way with words~'],"dialog",False,"menu",talkOut)
-Gary=menu(['Oh, yeah. "Gary". Ha! You have such a way with words~'],"dialog",False,"menu",talkOut)
+asshat=menu(['Oh, yeah. "Asshat."Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
+assface=menu(['Oh, yeah. "Assface."Ha!  You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
+butthat=menu(['Oh, yeah. "Butthat." Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
+buttface=menu(['Oh, yeah. "Buttface." Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
+facehat=menu(['Oh, yeah. "Facehat." Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
+assbutt=menu(['Oh, yeah. "Assbutt." Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
+Gary=menu(['Oh, yeah. "Gary". Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 
 ########### Start menu and its descendents
-start=menu(["Punkemon","Wikidex","Items"],"choice",True,"previous",False,True)
-startPunkemon=menu("list(self.screen.player.teamAsString())","choice",True,"menu","self.screen.switchTo('world')",True)
-startWikidex=menu("self.screen.player.wikidexAsList()","dialog",True,"previous",False,True)
-startItems=menu("self.screen.player.inventory.keys()+['cancel']","dialog",True,"menu","self.screen.switchTo('world')",True)
+start=menu(["Punkemon","Wikidex","Items"],"choice","addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
+startPunkemon=menu("list(self.screen.player.teamAsString())","choice","pass","backUpMenuStack()",True)
+startWikidex=menu("self.screen.player.wikidexAsList()","dialog","pass","backUpMenuStack()")
+startItems=menu("self.screen.player.inventory.keys()+['cancel']","choice","pass","backUpMenuStack()",True)
 
 ########### Menus from the inescapableHellscape test world
-despairSign=menu(["There is no escape from the inescapable hellscape.","Not for you~\n ~not for him."],"dialog",True,"menu","self.screen.switchTo('world')")
-garyBefore=menu(["Gary: Hey! How did you get here?"],"dialog",False,"menu","self.screen.processResponse(('battle',Gary))")
-garyAfter=menu(["Gary: Aww, man!"],"dialog",True,"menu","self.screen.switchTo('world')")
+despairSign=menu(["There is no escape from the inescapable hellscape.","Not for you~\n ~not for him."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
+garyBefore=menu(["Gary: Hey! How did you get here?"],"dialog","self.screen.processResponse(('battle',Gary))","self.screen.processResponse(('battle',Gary))")
+garyAfter=menu(["Gary: Aww, man!"],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
 
 menuDict={"Boy": boy,"Girl":girl,"FalseChoice":falseChoice,
           "nickChoice":nickChoice,"ASSHAT":asshat,"ASSFACE":assface,"BUTTHAT":butthat,"BUTTFACE":buttface,"FACEHAT":facehat,"ASSBUTT":assbutt,'"GARY"':Gary,
