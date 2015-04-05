@@ -143,7 +143,7 @@ class battle:
             victor.money+=loser.money/2
             if self.player.getNumUnfainted>0:
                 self.phase=0
-                if not isinstance(self.enemy,wildPunkemon):                    
+                if not isinstance(self.enemy,wildPunkemon):
                     self.curAction=self.processWin
                     self.curMenu.switchMenu([self.player.name+" got "+str(loser.money/2)+" PunkeBucks for winning!"],"dialog")
                     #we need to get the pokedollarsign sprite into the font file
@@ -334,6 +334,8 @@ class battle:
                     if isinstance(self.enemy,wildPunkemon):
                         caught=itemToUse.use(itemToUse,self.player,self.enemy.curMon)
                         if caught:
+                            if not self.enemy.curMon.species in self.player.monsCaught:
+                                self.player.monsCaught.append(self.enemy.curMon.species)
                             gameScreen=self.screen
                             self.screen.curMenu=menu([self.enemy.curMon.name+" was caught!"],"dialog",False,"menu","self.screen.switchTo('world')",False,self.screen)
                             self.screen.switchTo("menu")
@@ -473,7 +475,7 @@ class battle:
     
     def processWin(self,event):
         if self.enemy.afterDialog:
-                    self.screen.curMenu=self.enemy.afterDialog
+                    self.screen.activeMenus[-1]=self.enemy.afterDialog
                     self.screen.switchTo("menu")
         else:
             self.screen.switchTo("world")
@@ -566,6 +568,8 @@ class battle:
             self.enemy.curMon.monsFought.append(self.player.curMon)
         if self.enemy.curMon not in self.player.curMon.monsFought: #add enemy's mon to player's mon's list
             self.player.curMon.monsFought.append(self.enemy.curMon)
+        if self.enemy.curMon.species not in self.player.monsSeen:
+            self.player.monsSeen.append(self.enemy.curMon.species)
             
 
     
