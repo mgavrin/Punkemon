@@ -24,11 +24,17 @@ fakeDownPress=pygame.event.Event(KEYDOWN,{"key":K_DOWN})
 fakeLeftPress=pygame.event.Event(KEYDOWN,{"key":K_LEFT})
 fakeRightPress=pygame.event.Event(KEYDOWN,{"key":K_RIGHT})
 
-###################### Action Items for next work session #############
-#prevent side effects of moves that fail due to type matchup e.g. thundershock, thunderwave on ground punkemon
-#start menu
-#add support for item-effect announcements, both in-battle and remember to do it when you implement out-of-battle items
-#add support for sprites that look different directions
+###################### Action Items for future work sessions #############
+###bugfixes
+    #prevent side effects of moves that fail due to type matchup e.g. thundershock, thunderwave on ground punkemon
+###feature expansions
+    #expand on start menu, detail team screen and wikidex
+        #make the team overview a special menu subclass
+    #choice menu widths
+    #get items usable outside of battle (with effect announcements)
+    #add support for sprites that look different directions
+###Ambitious stuff!
+#make a level generator!
 #do the sprite stuff for battles (HP bars and whatnot)
 
 
@@ -241,11 +247,13 @@ class menu:
     def backUpMenuStack(self):
         self.screen.activeMenus=self.screen.activeMenus[:-1]
 
-    def addToMenuStack(self):
+    def addToMenuStack(self,newMenu=False):
         #Gets a new menu from the menudict and adds it to the screen, while keeping the old menu visible behind it.
         #Use when going to a menu that should revert to the previous menu on pressing "S".
         oldMenu=self
-        newMenu=menuDict[self.oplist[self.curPos-1]].evaluatedCopy()
+        if not newMenu:
+            newMenu=menuDict[self.oplist[self.curPos-1]]
+        newMenu=newMenu.evaluatedCopy()
         self.screen.activeMenus.append(newMenu)
 
     def evaluatedCopy(self):
@@ -253,8 +261,9 @@ class menu:
         #Use for menus where the oplist depends on the game state and you don't want to mutate.
         if isinstance(self.oplist,str):
             newOplist=eval(self.oplist)
-            return menu(newOplist,self.mode,self.backOut,self.nextMenuMeta,self.nextMenu,self.rollable,self.screen)
-            #if you have changed the init arguments for menu and now things are breaking, this is probably the problem
+            return menu(newOplist,self.mode,self.execOnA,self.execOnS,self.rollable,self.screen)
+            #If you have changed the init arguments for menu and now things are breaking, this is probably the problem
+            #Heed this prophecy, for it came true the first time within a day of its writing!
         else:
             return self
                     
@@ -288,7 +297,7 @@ class battleMenu:
         self.length=len(self.oplist)
         self.curPos=1 #choice # or place in the messages list
         self.drawArray=[] #list of sprite
-        self.maxChars=20
+        self.maxChars=screenWidth-2
         self.maxLines=3
         self.canGoBack=True
 
@@ -1725,10 +1734,10 @@ assbutt=menu(['Oh, yeah. "Assbutt." Ha! You have such a way with words~'],"dialo
 Gary=menu(['Oh, yeah. "Gary". Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 
 ########### Start menu and its descendents
-start=menu(["Punkemon","Wikidex","Items"],"choice","addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
-startPunkemon=menu("list(self.screen.player.teamAsString())","choice","pass","backUpMenuStack()",True)
-startWikidex=menu("self.screen.player.wikidexAsList()","dialog","pass","backUpMenuStack()")
-startItems=menu("self.screen.player.inventory.keys()+['cancel']","choice","pass","backUpMenuStack()",True)
+start=menu(["Punkemon","Wikidex","Items"],"choice","self.addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
+startPunkemon=menu("list(self.screen.player.teamAsString())","choice","pass","self.backUpMenuStack()",True)
+startWikidex=menu("self.screen.player.wikidexAsList()","dialog","pass","self.backUpMenuStack()",True)
+startItems=menu("self.screen.player.inventory.keys()+['cancel']","choice","pass","self.backUpMenuStack()",True)
 
 ########### Menus from the inescapableHellscape test world
 despairSign=menu(["There is no escape from the inescapable hellscape.","Not for you~\n ~not for him."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
