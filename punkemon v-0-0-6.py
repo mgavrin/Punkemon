@@ -26,12 +26,16 @@ fakeRightPress=pygame.event.Event(KEYDOWN,{"key":K_RIGHT})
 
 ###################### Action Items for future work sessions #############
 ###bugfixes
+    #instead of putting the oplist constructor as the oplist argument, make it its own arg and make oplist False.
+        #then recompute the oplist in getArray every time so it updates in realtime to reflect changing item counts, mon stats, etc.
     #prevent side effects of moves that fail due to type matchup e.g. thundershock, thunderwave on ground punkemon
+    #stop duplicate item effect messages, assuming they actually happen.
 ###feature expansions
     #expand on start menu, detail team screen and wikidex
         #make the team overview a special menu subclass
+    #make a menu subclass for menus with a title and a bunch of options instead of just a bunch of options
     #choice menu widths
-    #get items usable outside of battle (with effect announcements)
+    #scrolling menus (choice only?)
     #add support for sprites that look different directions
 ###Ambitious stuff!
 #make a level generator!
@@ -92,7 +96,7 @@ def safeCopy(source):
 ################### Menu stuff ############################
 allMenus=[]
 class menu:
-    def __init__(self,oplist,mode,execOnA,execOnS,rollable=False,screen=False):
+    def __init__(self,oplist,mode,execOnA,execOnS,rollable=False,oplistConstructor=False,screen=False):
         #rollable means being on the bottom option and hitting "down" gets you the top option
         self.oplist=oplist
         self.curPos=1 #current position of cursor, ONE-indexed
@@ -100,6 +104,11 @@ class menu:
         self.mode=mode #"choice" or "dialog", controls whether there's a moving cursor
         self.execOnA=execOnA
         self.execOnS=execOnS
+        self.oplistConstructor=oplistConstructor
+        if self.oplistConstructor:
+            self.tempOplist=eval(self.oplistConstructor)
+        else:
+            self.tempOplist=self.oplist
         self.curSlide=1
         self.maxChars=screenWidth-2
         self.maxLines=4
@@ -119,7 +128,7 @@ class menu:
     def getArrayChoice(self): #generates array with set of menu options for sprite generations
         #find length of longest menu item
         maxLength=2
-        for op in self.oplist: #op needs to be a string
+        for op in self.tempOplist: #op needs to be a string
             if len(op)>maxLength:
                 maxLength=len(op)
         #top border line
@@ -128,7 +137,7 @@ class menu:
             opAr[0].append("T=")
         opAr[0].append("*TR")
         #assemble menu line for a given entry
-        for op in self.oplist: 
+        for op in self.tempOplist: 
             tmp=["L|"," "] #open line with pipe and space for cursor
             tmpStr=op.ljust(maxLength)#buffer item to max length, +1 for cursor
             for char in tmpStr:#stick in one char at a time
@@ -146,7 +155,7 @@ class menu:
 
     def getArrayDialog(self): #generates array with dialog characters in a box
         #get raw string of dialog and break it up into lines
-        diastring=self.oplist[self.curSlide-1] #-1 bc curSlide is 1-indexed
+        diastring=self.tempOplist[self.curSlide-1] #-1 bc curSlide is 1-indexed
         sentences=diastring.split("\n")
         finalLines=[] #will contain the final dialog, with each item being a line
         for sentence in sentences:
@@ -195,9 +204,9 @@ class menu:
             if self.curPos>1: #curPos=1 means cursor on top option
                 self.curPos-=1
             elif self.rollable:
-                self.curPos=len(self.oplist)
+                self.curPos=len(self.tempOplist)
         elif direction=="down":
-            if self.curPos<len(self.oplist):
+            if self.curPos<len(self.tempOplist):
                 self.curPos+=1
             elif self.rollable:
                 self.curPos=1
@@ -221,7 +230,7 @@ class menu:
 
     def processInputDialog(self, event, screen):
         if event.type==KEYDOWN:
-            if self.curSlide<len(self.oplist):
+            if self.curSlide<len(self.tempOplist):
                 self.curSlide+=1
             elif event.key==K_a:
                 exec(self.execOnA)
@@ -238,7 +247,7 @@ class menu:
             self.oplist=eval(newOptions)
         else:
             self.oplist=newOptions
-        self.length=len(self.oplist)
+        self.length=len(self.tempOplist)
         self.curPos=1
 
     def replaceMenu(self,newMenuInstance):
@@ -252,14 +261,16 @@ class menu:
         #Use when going to a menu that should revert to the previous menu on pressing "S".
         oldMenu=self
         if not newMenu:
-            newMenu=menuDict[self.oplist[self.curPos-1]]
+            newMenu=menuDict[self.tempOplist[self.curPos-1]]
         newMenu=newMenu.evaluatedCopy()
         self.screen.activeMenus.append(newMenu)
 
     def evaluatedCopy(self):
         #Returns a menu that is the same as self, but with the oplist evaluated if necessary.
         #Use for menus where the oplist depends on the game state and you don't want to mutate.
+        #will probably be deprecated after the oplist constructor is its own argument
         if isinstance(self.oplist,str):
+            print "evaluatedCopy got used"
             newOplist=eval(self.oplist)
             return menu(newOplist,self.mode,self.execOnA,self.execOnS,self.rollable,self.screen)
             #If you have changed the init arguments for menu and now things are breaking, this is probably the problem
@@ -285,11 +296,47 @@ class menu:
         #secondMon.trainer=self.screen.player
         #thirdMon.trainer=self.screen.player
         self.screen.player.team=[starterMon]#,secondMon,thirdMon]
+        self.screen.player.monsSeen.append(starterMon.species)
+        self.screen.player.monsCaught.append(starterMon.species)
         garyMon.trainer=Gary
         Gary.team=[garyMon]
         self.screen.switchTo('world')
 
+    def displayItemsList(self):
+        result=[]
+        names=Red.inventory.keys()
+        for name in names:
+            dispStr=name+": "+str(self.screen.player.inventory[name])
+            result.append(dispStr)
+        return result
 
+    def selectItemOutsideBattle(self):
+        #get the current oplist
+        if self.oplistConstructor:
+            self.tempOplist=eval(self.oplistConstructor)
+        else:
+            self.tempOplist=self.oplist
+        self.screen.player.selectedItemName=self.tempOplist[self.curPos-1].split(":")[0] #take only the part of "itemName: numberAvailable" before the colon
+        if itemDict[self.screen.player.selectedItemName].targetsMon:
+            self.addToMenuStack(itemChooseMon)
+        else:
+            self.itemOutsideBattle(False)
+
+    def itemOutsideBattle(self,targetMonTeamIndex):
+        itemName=self.screen.player.selectedItemName
+        chosenItem=itemDict[itemName]
+        targetMon=self.screen.player.team[targetMonTeamIndex] #mon instance or False if none is needed
+        legal=chosenItem.isLegal(chosenItem,targetMon,False)
+        if legal:
+            useResultMessage=chosenItem.use(chosenItem,self.screen.player,targetMon)
+            self.addToMenuStack(menu([useResultMessage],"dialog","self.backUpMenuStack()","self.backUpMenuStack()",False,False,self.screen))
+            self.screen.player.selectedItemName=False
+        else:
+            self.addToMenuStack(menu(["What are you smoking? Now's not the time for that!"],"dialog","self.backUpMenuStack()","self.backUpMenuStack()",False,False,self.screen))
+
+
+########## Battle menus: simplified menus for use in battle.
+########## Currently used to display all available battle information, because graphics  haven't been done yet.
 class battleMenu:
     def __init__(self,curMode,oplist):
         self.curMode=curMode #either "choice" or "dialog"
@@ -566,6 +613,9 @@ class move:
                      defender.status["trapped"]=True
         return messages
 
+moveCode=open("Moves.py")
+exec(moveCode.read())
+
 class typeMatchup:
     def __init__(self):
         self.order=["Normal","Fighting","Flying","Poison","Ground","Rock","Bug",
@@ -726,13 +776,16 @@ class wildPunkemon(character):
 ##############Items ##############################
 itemDict={}
 class item:
-    def __init__(self,name,useFunction,legalFunction,battleUseable): 
-        #name as appears in inventory,
-        #function that takes a player and performs the action of that player using that item
+    def __init__(self,name,useFunction,legalFunction,battleUseable,targetsMon=True): 
+        #name as it appears in the inventory
         self.name=name
-        self.use=useFunction#unique to each of potion, super potion, repel, water stone, etc.
+        #function that takes a player and performs the action of that player using that item
+        #unique to each of potion, super potion, repel, water stone, etc.
+        self.use=useFunction
         self.isLegal=legalFunction
         self.battleUseable=battleUseable
+        #targetsMon is true if the item needs to be used on a specific punkemon (e.g. potions or stones), false otherwise (e.g. repel, escape rope)
+        self.targetsMon=targetsMon
         itemDict[self.name]=self
 
         
@@ -741,14 +794,18 @@ class item:
         #make sure this can only be called on an item that has been in the inventory at least once
         #otherwise it will throw a keyError
             player.inventory[self.name]-=1
+            oldHP=target.tempStats["HP"]
             newHP=min(target.tempStats["HP"]+numHP,target.permStats["HP"])
             target.tempStats["HP"]=newHP
+            return target.name+" recovered "+str(newHP-oldHP)+" HP."
+        else:
+            return "You don't have any!"
         
     def usePotion(self,player,target):
-        self.healMon(player,target,20)
+        return self.healMon(player,target,20)
     
     def useSuperPotion(self,player,target):
-        healMon(player,target,50)
+        return healMon(player,target,50)
 
     def potionLegal(self,target,inBattle):
         return target.permStats["HP"]>target.tempStats["HP"]>0
@@ -759,9 +816,12 @@ class item:
             player.encounterModifier=modifier
             player.activeItem=self
             player.stepsToItemEnd=duration
+            return "Repel was used successfully."
+        else:
+            return "You don't have any!"
 
     def useRepel(self,player,target):
-        self.repel(player,-10,500) #sanity-check these numbers!
+        return self.repel(player,-10,500) #sanity-check these numbers!
 
     def repelLegal(self,target,inBattle):
         return not inBattle
@@ -770,6 +830,9 @@ class item:
         if player.inventory[self.name]>0:
             player.inventory[self.name]-=1
             target.tempStats["HP"]=0.5*target.permStats["HP"]
+            return target.name+" was revived!"
+        else:
+            return "You don't have any!"
             
     def reviveLegal(self,target,inBattle):
         return target.tempStats["HP"]<=0
@@ -777,10 +840,12 @@ class item:
     def useBall(self,player,target,ballLevel):
         if player.inventory[self.name]>0:
             player.inventory[self.name]-=1
-            catchSuccess=True #replace this with some math using ballLevel and the target mon and stuff
+            catchSuccess=True #replace this with some math using ballLevel and the target mon and the phase of the moon and stuff
             if catchSuccess:
                 target.duplicate(player,"Steve")
             return catchSuccess
+        else:
+            return "You don't have any!"
 
     def ballLegal(self,target,inBattle):
         return isinstance(target.trainer,wildPunkemon)
@@ -792,56 +857,60 @@ class item:
         if player.inventory[self.name]>0:
             player.inventory[self.name]-=1
             if len(target.evolveStone)==1:
-                target.duplicate(False,target.nextEvolution,target.nextEvolution)
+                nextEvolution=target.nextEvolution
+                target.duplicate(False,nextEvolution,nextEvolution)
             else: #special case for eevee, because eevee is a special snowflake
                 nextEvolution=target.evolveDict[stoneType]
                 target.duplicate(False,nextEvolution,nextEvolution)
+            return target.name+" evolved into "+nextEvolution+"!"
+        else:
+            return "You don't have any!"
 
     def stoneLegal(self,target,inBattle,stoneType):
         return (target.evolveStone and stoneType in target.evolveStone)
 
     def useWaterStone(self,player,target):
-        self.useStone(player,target,"water")
+        return self.useStone(player,target,"water")
 
     def waterStoneLegal(self,target,inBattle):
         return self.stoneLegal(target,inBattle,"water")
 
     def useFireStone(self,player,target):
-        self.useStone(player,target,"fire")
+        return self.useStone(player,target,"fire")
 
     def fireStoneLegal(self,target,inBattle):
         return self.stoneLegal(target,inBattle,"fire")
 
     def useThunderStone(self,player,target):
-        self.useStone(player,target,"thunder")
+        return self.useStone(player,target,"thunder")
 
     def thunderStoneLegal(self,target,inBattle):
         return self.stoneLegal(target,inBattle,"thunder")
     
     def useMoontone(self,player,target):
-        self.useStone(player,target,"moon")
+        return self.useStone(player,target,"moon")
 
     def moonStoneLegal(self,target,inBattle):
         return self.stoneLegal(target,inBattle,"moon")
 
     def useLeafStone(self,player,target):
-        self.useStone(player,target,"leaf")
+        return self.useStone(player,target,"leaf")
 
     def leafStoneLegal(self,target,inBattle):
         return self.stoneLegal(target,inBattle,"leaf")
         
 
-potion=item("Potion",item.usePotion,item.potionLegal,True)
-superPotion=item("Super potion",item.useSuperPotion,item.potionLegal,True)
-repel=item("Repel",item.useRepel,item.repelLegal,False)
-revive=item("Revive",item.useRevive,item.reviveLegal,True)
-punkeball=item("Punkeball",item.usePunkeball,item.ballLegal,True)
+potion=item("Potion",item.usePotion,item.potionLegal,True,True)
+superPotion=item("Super potion",item.useSuperPotion,item.potionLegal,True,True)
+repel=item("Repel",item.useRepel,item.repelLegal,False,False)
+revive=item("Revive",item.useRevive,item.reviveLegal,True,True)
+punkeball=item("Punkeball",item.usePunkeball,item.ballLegal,True,False)
 #more balls
-waterStone=item("Water stone",item.useWaterStone,item.waterStoneLegal,True)
-fireStone=item("Fire stone",item.useFireStone,item.fireStoneLegal,True)
-thunderStone=item("Thunder stone",item.useThunderStone,item.thunderStoneLegal,True)
-moonStone=item("Moon stone",item.useMoontone,item.moonStoneLegal,True)
-leafStone=item("Leaf stone",item.useLeafStone,item.leafStoneLegal,True)
+waterStone=item("Water stone",item.useWaterStone,item.waterStoneLegal,True,True)
+fireStone=item("Fire stone",item.useFireStone,item.fireStoneLegal,True,True)
+thunderStone=item("Thunder stone",item.useThunderStone,item.thunderStoneLegal,True,True)
+moonStone=item("Moon stone",item.useMoontone,item.moonStoneLegal,True,True)
+leafStone=item("Leaf stone",item.useLeafStone,item.leafStoneLegal,True,True)
 
 ##############Sprites! ###########################
 terrainDict={"T":1,"x":1,"-":0,"G":3,"w":4,"O":2," ":0,"B1":1}
@@ -1196,7 +1265,7 @@ class NPCTrainer(actionable): #randos who stand around and DO fight
         self.trainer.fought=False
         self.beforeDialog=self.trainer.beforeDialog
         self.afterDialog=self.trainer.afterDialog
-        self.foughtDialog=menu(foughtDialog,"dialog",True,"menu","self.screen.switchTo('world')")
+        self.foughtDialog=menu(foughtDialog,"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
         actionable.__init__(self,pos,sprite,5)
 
     def getSightLine(self,terrainMap): #returns a list of 2-item locations that are their sightline
@@ -1341,6 +1410,7 @@ class screen:
     def switchTo(self,mode):
         self.mode=mode
         if mode=="menu":
+            print "vanilla menu mode"
             self.processInput=self.menuInput
             self.drawScreen=self.drawMenu
         elif mode=="newMenu":
@@ -1636,6 +1706,8 @@ class screen:
     def drawMenu(self):
         self.gameScreen.fill(self.backgroundColor)
         for menu in self.activeMenus:
+            if menu.oplistConstructor:
+                menu.tempOplist=eval(menu.oplistConstructor)
             drawPos=[0,0]
             drawArray=menu.getArray()
             for row in drawArray:
@@ -1654,6 +1726,8 @@ class screen:
         self.gameScreen.blit(self.gameSlice,dest=(0,0))
         #DRAW ALL THE MENUS
         for menu in self.activeMenus:
+            if menu.oplistConstructor:
+                menu.tempOplist=eval(menu.oplistConstructor)
             drawPos=[0,0]
             drawArray=menu.getArray()
             for row in drawArray:
@@ -1709,12 +1783,15 @@ player=pygame.image.load(os.path.join("sprites","player.png"))
 worldFGSpriteDict["@"]=player
 
 
+placeholderSquirtle=Squirtle(8,"Squirtle")
+Red=PC("Red","female",[placeholderSquirtle],20) # Squirtle is a placeholder. You needn't start with Squirtle if you don't want to. *coughbutyoushouldcough*
+
 rivalName="Should Not Display"
-###### Menu instances (self,oplist,mode,execOnA,execOnS,rollable=False,screen=False) sorted by world or speaker
+###### Menu instances (self,oplist,mode,execOnA,execOnS,rollable=False,oplistConstructor=False,screen=False) sorted by world or speaker
 placeholderMenu=menu(["You should never see this."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
 ########### Typha menus
 falseChoice=menu(["Boy","Girl"],"choice","Red.gender=self.oplist[self.curPos-1]\nself.replaceMenu(boy)","pass")
-nickChoice=menu(["ASSHAT","ASSFACE","BUTTHAT","BUTTFACE","FACEHAT","ASSBUTT",'"GARY"'],"choice","garyActionable.trainer.name=self.oplist[self.curPos-1]\nself.replaceMenu(eval(garyActionable.trainer.name.lower()))","pass")
+nickChoice=menu(["ASSHAT","ASSFACE","BUTTHAT","BUTTFACE","FACEHAT","ASSBUTT",'"GARY"'],"choice","garyActionable.trainer.name=self.oplist[self.curPos-1]\nself.replaceMenu(menuDict[self.oplist[self.curPos-1]])","pass")
 starterMonChoice=menu(["Bulbasaur","Charmander","Squirtle"],"choice","self.pickStarter(self.oplist[self.curPos-1])","pass")
 noDice=menu(["Since it seems I can't talk either of you two out of it~","Your adventure in the world of PUNKEMON fighting starts NOW. Grab a mon and get going!"],"dialog","self.replaceMenu(starterMonChoice)","pass")
 doItAnyway=menu(["You can't scare me.","I'm gonna be the best!"],"choice","self.replaceMenu(noDice)","pass")
@@ -1735,9 +1812,10 @@ Gary=menu(['Oh, yeah. "Gary". Ha! You have such a way with words~'],"dialog","se
 
 ########### Start menu and its descendents
 start=menu(["Punkemon","Wikidex","Items"],"choice","self.addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
-startPunkemon=menu("list(self.screen.player.teamAsString())","choice","pass","self.backUpMenuStack()",True)
-startWikidex=menu("self.screen.player.wikidexAsList()","dialog","pass","self.backUpMenuStack()",True)
-startItems=menu("self.screen.player.inventory.keys()+['cancel']","choice","pass","self.backUpMenuStack()",True)
+startPunkemon=menu(False,"choice","pass","self.backUpMenuStack()",True,"list(Red.teamAsString())")
+startWikidex=menu(False,"dialog","pass","self.backUpMenuStack()",True,"Red.wikidexAsList()")
+startItems=menu(False,"choice","self.selectItemOutsideBattle()","self.backUpMenuStack()",True,"start.displayItemsList()")
+itemChooseMon=menu(False,"choice","self.itemOutsideBattle(self.curPos-1)","self.backUpMenuStack()",True,"Red.teamAsString()")
 
 ########### Menus from the inescapableHellscape test world
 despairSign=menu(["There is no escape from the inescapable hellscape.","Not for you~\n ~not for him."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
@@ -1749,86 +1827,7 @@ menuDict={"Boy": boy,"Girl":girl,"FalseChoice":falseChoice,
           "talkOut":talkOut,"doItAnyway":doItAnyway,"noDice":noDice, "You can't scare me.":noDice,"I'm gonna be the best!":noDice,
           "Punkemon":startPunkemon,"Wikidex":startWikidex,"Items":startItems}
 
-######Move instances
-##Initialize moves with: name,basePwr, baseAcc, maxPP, nation, special, sideEffect, message, fastMove=False, critRate=1
-##Basic moves
-tackle=move("Tackle",35,95,35,"Normal",False,False)
-growl=move("Growl",0,100,40,"Normal",False,"enemy Attack -1","'s attack fell!")
-tailWhip=move("Tail Whip",0,100,40,"Normal",False,"enemy Defense -1","'s defense fell!")
-scratch=move("Scratch",40,100,35,"Normal",False,False)
 
-##Bulbasaur
-leechSeed=move("Leech Seed",0,90,10,"Grass",False,"100 seeded", " was seeded!")
-vineWhip=move("Vine Whip",35,100,10,"Grass",False,False)
-poisonPowder=move("Poisonpowder",0,75,35,"Poison","100 poisoned"," was poisoned!")
-razorLeaf=move("Razor Leaf",55,95,25,"Grass",False,False)
-growth=move("Growth",0,100,40,"Normal",False,"self Special 1","'s special rose!")
-sleepPowder=move("Sleep Powder",0,75,15,"Grass",False,"100 sleep"," fell asleep!")
-solarBeam=move("Solar Beam",120,100,10,"Grass",True,"charging 2")#####needs to charge! #contemplate and/or add a special message here
-
-##Charmander
-ember=move("Ember",40,100,25,"Fire",True,"10 burn"," was burned!")
-leer=move("Leer",0,100,30,"Normal",False,"enemy Defense -1","'s defense fell!")
-####Add rage?
-slash=move("Slash",70,100,20,"Normal",False,False,False,False,8)#high crit rate
-flamethrower=move("Flamethrower",95,100,15,"Fire",True,"10 burned"," was burned!")
-fireSpin=move("Fire Spin",15,70,15,"Fire",True,"multiple False"," is caught in the vortex!")#special message here won't display because you haven't handled charging and multiple
-
-##Squirtle
-bubble=move("Bubble",20,100,30,"Water",True,False)
-waterGun=move("Water Gun",40,100,25,"Water",True,False)
-bite=move("Bite",60,100,25,"Normal",False,"10 flinch"," flinched!")
-withdraw=move("Withdraw",0,100,40,"Water",False,"self Defense 1","'s defense rose!")
-skullBash=move("Skull Bash",100,100,15,"Normal",False,"charging 2")#contemplate/add special message
-hydroPump=move("Hydro Pump",120,80,5,"Water",True,False)
-
-#Rattata
-quickAttack=move("Quick Attack",40,100,30,"Normal",False,False,True)
-hyperFang=move("Hyper Fang",80,90,15,"Normal",False,"90 flinched"," flinched!")
-
-#Pidgey
-gust=move("Gust",40,100,35,"Normal",True,False)
-wingAttack=move("Wing Attack",35,100,35,"Flying",False,False)
-fly=move("Fly",90,95,15,"Flying",False,"charging offscreen")#contemplate/add special message
-
-#Hovisquirrel aka vulpix
-roar=move("Roar",0,100,20,"Normal",False,False)##currently does jack shit, make analogous to whirlwind
-confuseRay=move("Confuse Ray",0,100,10,"Ghost",False,"100 confused"," became confused!")
-
-#hypnotoad aka poliwrath and evolutions
-hypnosis=move("Hypnosis",0,60,20,"Psychic",False,"100 sleep"," fell asleep!")
-doubleSlap=move("Double slap",15,85,10,"Normal",False,"multiple False")
-bodySlam=move("Body slam",85,100,15,"Normal",False,"30 paralyzed"," became paralyzed!")
-amnesia=move("Amnesia",0,200,20,"Psychic",False,"self special 2","'s special greatly rose!")
-
-#eevee and eeveelutions
-takeDown=move("Takedown",90,85,20,"Normal",False, "exec attacker.tempStats['HP']-=eval(effectWords[2]) 0.25*self.getDamage(attacker,defender)",False)
-#the third effectWord gets eval'd; it's an expression for the amount of recoil damage
-thunderWave=move("Thunder Wave",0,100,20,"Electric",False,"100 paralyzed"," became paralyzed!")
-agility=move("Agility",0,200,30,"Psychic",False,"self Speed 2","'s Speed rose!")
-pinMissile=move("Pin Missile",25,95,20,"Bug",False,"chain randint(2,5)")
-thunder=move("Thunder",110,70,10,"Electric",True,"10 paralyzed"," became paralyzed!")
-auroraBeam=move("Aurora Beam",65,100,20,"Ice",True,"10 attack","'s attack fell!")
-acidArmor=move("Acid Armor",0,200,20,"Poison",False,"self Defense 2","'s defense greatly rose!")
-#Add Haze if you ever feel like a masochist
-mist=move("Mist",0,200,30,"Ice",False,"exec attacker.immuneToStatMoves=True"," is shrouded in mist!")
-smog=move("Smog",20,70,20,"Poison",True,"40 poisoned"," became poisoned!")
-#Add rage to flareon's learnDict if you ever implement it for the char* line
-
-
-
-
-#random fun stuff and moves that test important features
-thunderShock=move("Thundershock",100,90,15,"Electric",True,"30 paralyzed"," became paralyzed!")
-sandAttack=move("Sand Attack",0,90,20,"Normal",False,"enemy accuracy -1","'s accuracy fell!")##mul by 1.4^-1
-splash=move("Splash",0,100,20,"Water",False,False)
-engineering=move("Engineering",200,100,100,"Dragon",True,"100 confused"," became confused!",True,10)
-hitYourself=move("hitYourself",40,200,100,"Fail",False,False,False,0)
-struggle=move("Struggle",50,100,"Normal",False,False,False,1)
-wrap=move("Wrap",15,90,20,"Normal",False,"multiple False")
-dig=move("Dig",80,100,10,"Ground",False,"charging offscreen")#contemplate/add special message
-focusEnergy=move("Focus Energy",0,200,30,"Normal",False,"self critRate 4"," is getting pumped!")
-doubleKick=move("Double Kick",30,100,30,"Fighting",False,"chain 2")
 
 
 
@@ -1868,10 +1867,9 @@ inescapableHellscape=world(False,buildingMap,6,9,basicRouteSeed,False," w") #cha
 O1.destination=inescapableHellscape
 
 ######Hard sets of things that should be dynamically generated (Yeah testing!)
-Red=PC("Red","female",[powerSquirtle],20) # Squirtle is a placeholder. You needn't start with Squirtle if you don't want to. *coughbutyoushouldcough*
 Red.inventory["Potion"]=5
 Red.inventory["Super potion"]=5
-Red.inventory["Repel"]=3
+Red.inventory["Repel"]=1
 Red.inventory["Revive"]=4
 Red.inventory["Punkeball"]=5
 Red.inventory["Water stone"]=1

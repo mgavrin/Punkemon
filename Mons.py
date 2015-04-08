@@ -346,7 +346,7 @@ class punkemon:
 class Bulbasaur(punkemon):
     def __init__(self,level,name="Bulbasaur",trainer=False):
         self.evolveStone=False
-        self.evolveLevel=6 #change this back to 16 when you're done testing!
+        self.evolveLevel=16 #change this back to 16 when you're done testing!
         self.nextEvolution="Ivysaur"
         learnDict={0:tackle,1:growl,7:leechSeed,13:vineWhip,20:poisonPowder,27:razorLeaf,34:growth,41:sleepPowder,48:solarBeam}
         punkemon.__init__(self,"Bulbasaur",["Grass"],1,level,"medium",[49,49,45,45,65],64,learnDict,name,trainer)
@@ -370,21 +370,25 @@ class Venusaur(punkemon):
         
 class Charmander(punkemon):
     def __init__(self,level,name="Charmander",trainer=False):
+        self.evolveStone=False
         learnDict={0:scratch,1:growl,9:ember,15:leer,30:slash,38:flamethrower,46:fireSpin}###Add rage at 22 once you have it coded!
         punkemon.__init__(self,"Charmander",["Fire"],4,level,"medium",[52,43,39,65,50],62,learnDict,name,trainer)
         
 class Squirtle(punkemon):
     def __init__(self,level,name="Squirtle",trainer=False):
+        self.evolveStone=False
         learnDict={0:tackle,1:tailWhip,8:bubble,15:waterGun,22:bite,28:withdraw,35:skullBash,42:hydroPump}
         punkemon.__init__(self,"Squirtle",["Water"],7,level,"medium",[48,65,44,43,50],63,learnDict,name,trainer)
      
 class Rattata(punkemon):
     def __init__(self,level,name="Rattata",trainer=False):
+        self.evolveStone=False
         learnDict={0:tackle,1:tailWhip,7:quickAttack,14:hyperFang}
         punkemon.__init__(self,"Rattata",["Normal"],19,level,"medium",[56,35,30,72,25],51,learnDict,name,trainer)
 
 class Pidgey(punkemon):
     def __init__(self,level,name="Pidgey",trainer=False):
+        self.evolveStone=False
         learnDict={0:gust,5:sandAttack,12:quickAttack,28:wingAttack}#19 whirlwind but that's dumb
         punkemon.__init__(self,"Pidgey",["Flying"],16,level,"medium",[45,40,40,56,35],50,learnDict,name,trainer)
 
@@ -419,20 +423,24 @@ class Flareon(punkemon):
 
 class Derp(punkemon):
     def __init__(self,level,name="Derp",trainer=False):
+        self.evolveStone=False
         punkemon.__init__(self,"Derp",["Normal"],0,2,"slow",[0,0,0,0,0],64,{0:splash},name,trainer)
 
 class Rob(punkemon):
     def __init__(self,level,name="Rob Davidoff",trainer=False):
+        self.evolveStone=False
         learnDict={0:tackle,1:Engineering,13:vineWhip,20:poisonPowder,27:razorLeaf,34:growth,41:sleepPowder,48:solarBeam}
         punkemon.__init__(self,"Rob",["Dragon"],200,level,"fast",[70,70,70,70,70],99,learnDict,name,trainer)
 
 class LizardSpock(punkemon):
     def __init__(self,level,name="LizardSpock",trainer=False):
+        self.evolveStone=False
         learnDict={0:tackle,1:wrap,2:slash}#rock, paper, scissors aka tackle, wrap, slash
         punkemon.__init__(self,"LizardSpock",["Water"],152,level,"fast",[49,49,45,45,65],64,learnDict,name,trainer)
 
 class Hovisquirrel(punkemon): #our analogue of vulpix; a squirrel with a flaming tail, for Rob's coworker Greg Hovis
     def __init__(self,level,name="Hovisquirrel",trainer=False):
+        self.evolveStone=False
         learnDict={0:tailWhip,1:ember,16:quickAttack,21:roar,28:confuseRay,35:flamethrower,42:fireSpin}
         punkemon.__init__(self,"Hovisquirrel",["Fire"],37,level,"medium",[41,40,38,65,65],60,learnDict,name,trainer)
 
@@ -455,6 +463,7 @@ class Poliwhirl(punkemon):
 
 class Hypnotoad(punkemon): #our analogue of polywrath
     def __init__(self,level,name="Hypnotoad",trainer=False):
+        self.evolveStone=False
         learnDict={0:hypnosis,1:waterGun,2:doubleSlap,3:bodySlam}
         punkemon.__init__(self,"Hypnotoad",["Water","Fighting"],62,level,"medium",[85,95,90,70,70],255,learnDict,name,trainer)
         

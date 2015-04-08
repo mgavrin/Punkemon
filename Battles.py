@@ -7,10 +7,9 @@ class battle:
         self.screenMessage=""
         self.curMenu=battleMenu("dialog",["bananaHammock"])
         screen.curBattle=self
-        self.setupBattle()
         player.curMon=player.team[0]
         enemy.curMon=enemy.team[0]
-
+        self.setupBattle()
         self.curPhase="start" # Options:"start", "initial input", "first attack", "second attack","between attacks", "after attacks"
         self.oldPhase="just started"
         self.needToInterrupt=[] #list of things we need to interrupt the turn order for:
@@ -38,6 +37,8 @@ class battle:
             mon.status["multiple"]=False
             mon.status["charging"]=False
             mon.monsFought=[]
+        if self.enemy.curMon.species not in self.player.monsSeen:
+            self.player.monsSeen.append(self.enemy.curMon.species)
 
     def switchTo(self,nextMenu): #switches to a new menu within the battle
         self.oldPhase=self.curPhase #phase of the battle
@@ -227,7 +228,6 @@ class battle:
                     self.player.nextMon=mon
                     #do some screen stuff to display the new mon
                     self.player.nextMon.status["justSentOut"]=True
-                    print self.player.nextMon.name
                     #prevent the old mon from getting a last attack in
                     self.player.curMon.status["leaving"]=True
                     self.switchTo("Start attack")
@@ -337,7 +337,7 @@ class battle:
                             if not self.enemy.curMon.species in self.player.monsCaught:
                                 self.player.monsCaught.append(self.enemy.curMon.species)
                             gameScreen=self.screen
-                            self.screen.curMenu=menu([self.enemy.curMon.name+" was caught!"],"dialog",False,"menu","self.screen.switchTo('world')",False,self.screen)
+                            self.screen.activeMenus=[menu([self.enemy.curMon.name+" was caught!"],"dialog","self.screen.switchTo('world')","pass",False,False,self.screen)]
                             self.screen.switchTo("menu")
                     else:
                         self.curMenu.switchMenu(["What are you smoking? Now's not the time for that!"],"dialog")
@@ -520,7 +520,7 @@ class battle:
         (canMove,canMoveMessages)=attacker.getCanMove()
         messages+=canMoveMessages
         if attacker.curMove=="item":
-            self.player.lastItem.use(self.player.lastItem,self.player,self.itemTargetMon)
+            messages.append(self.player.lastItem.use(self.player.lastItem,self.player,self.itemTargetMon))
         if canMove:
             move=attacker.curMove
             messages.append(str(attacker)+" used "+str(move)+"!")
