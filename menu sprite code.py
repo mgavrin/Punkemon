@@ -63,3 +63,7 @@ RPipe=pygame.image.load(os.path.join("Font","rightPipe.png"))
 menuSpriteDict["R|"]=RPipe
 cursor=pygame.image.load(os.path.join("Font","cursor.png"))
 menuSpriteDict[">"]=cursor
+cursorUp=pygame.image.load(os.path.join("Font","cursorUp.png"))
+menuSpriteDict["cUp"]=cursorUp
+cursorDown=pygame.image.load(os.path.join("Font","cursorDown.png"))
+menuSpriteDict["cDn"]=cursorDown

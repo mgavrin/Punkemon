@@ -26,14 +26,12 @@ fakeRightPress=pygame.event.Event(KEYDOWN,{"key":K_RIGHT})
 
 ###################### Action Items for future work sessions #############
 ###bugfixes
-    #instead of putting the oplist constructor as the oplist argument, make it its own arg and make oplist False.
-        #then recompute the oplist in getArray every time so it updates in realtime to reflect changing item counts, mon stats, etc.
     #prevent side effects of moves that fail due to type matchup e.g. thundershock, thunderwave on ground punkemon
     #stop duplicate item effect messages, assuming they actually happen.
 ###feature expansions
     #expand on start menu, detail team screen and wikidex
         #make the team overview a special menu subclass
-    #make a menu subclass for menus with a title and a bunch of options instead of just a bunch of options
+    #make a menu subclass for choice menus with a title and a bunch of options instead of just a bunch of options
     #choice menu widths
     #scrolling menus (choice only?)
     #add support for sprites that look different directions
@@ -99,9 +97,11 @@ class menu:
     def __init__(self,oplist,mode,execOnA,execOnS,rollable=False,oplistConstructor=False,screen=False):
         #rollable means being on the bottom option and hitting "down" gets you the top option
         self.oplist=oplist
+        self.mode=mode #"choice", "titledChoice", or "dialog", controls whether there's a moving cursor and if the first thing is a title or an option
         self.curPos=1 #current position of cursor, ONE-indexed
+        if self.mode=="titledChoice":
+            self.curPos=2
         self.rollable=rollable
-        self.mode=mode #"choice" or "dialog", controls whether there's a moving cursor
         self.execOnA=execOnA
         self.execOnS=execOnS
         self.oplistConstructor=oplistConstructor
@@ -114,11 +114,23 @@ class menu:
         self.maxLines=4
         self.maxSlides=5
         self.screen=screen
-        allMenus.append(self)    
+        self.frame=self.getFrame()
+        #Frame should be in terms of option numbers, NOT list index
+        allMenus.append(self)
+
+    def getFrame(self): #only call this in init or when curPos is set to 1
+        if self.mode=="choice":
+            return[1,screenHeight-2]
+        elif self.mode=="titledChoice":
+            return [1,screenHeight-2]
+        elif self.mode=="dialog":
+            return False
 
     def getArray(self):
         if self.mode=="choice":
             array=self.getArrayChoice()
+        elif self.mode=="titledChoice":
+            array=self.getArrayTitledChoice()
         elif self.mode=="dialog":
             array=self.getArrayDialog()
         else:
@@ -131,13 +143,16 @@ class menu:
         for op in self.tempOplist: #op needs to be a string
             if len(op)>maxLength:
                 maxLength=len(op)
+        maxLength+=1 #allows space on the right for the scroll cues
+        #find section of menu that can currently fit on the screen
+        oplistInFrame=self.tempOplist[self.frame[0]-1:self.frame[1]]
         #top border line
         opAr=[["*TL"]]
         for i in range(0,maxLength+1): #+1 for cursor
             opAr[0].append("T=")
         opAr[0].append("*TR")
         #assemble menu line for a given entry
-        for op in self.tempOplist: 
+        for op in oplistInFrame: 
             tmp=["L|"," "] #open line with pipe and space for cursor
             tmpStr=op.ljust(maxLength)#buffer item to max length, +1 for cursor
             for char in tmpStr:#stick in one char at a time
@@ -150,7 +165,56 @@ class menu:
         lastLine.append("*BR")
         opAr.append(lastLine)
         #draw cursor
-        opAr[self.curPos][1]=">"
+        cursorIndex=self.curPos-self.frame[0]+1
+        opAr[cursorIndex][1]=">"
+        #draw scroll-arrow if necessary
+        if self.frame[0]!=1: #can scroll up
+            opAr[1][-2]="cUp"
+        if len(self.tempOplist)>screenHeight-2 and self.frame[1]!=len(self.tempOplist): #can scroll down
+            opAr[-2][-2]="cDn"
+        return(opAr)
+
+    def getArrayTitledChoice(self): #generates array with set of menu options for sprite generations
+        #find length of longest menu item
+        maxLength=2
+        for op in self.tempOplist: #op needs to be a string
+            if len(op)>maxLength:
+                maxLength=len(op)
+        maxLength+=1
+        #find section of menu that can currently fit on the screen
+        oplistInFrame=self.tempOplist[1:][self.frame[0]-1:self.frame[1]-1]#heaven forgive me
+        #top border line
+        opAr=[["*TL"]]
+        for i in range(0,maxLength+1): #+1 for cursor
+            opAr[0].append("T=")
+        opAr[0].append("*TR")
+        #assemble first line (title)
+        firstLine=["L|"]
+        paddedTitle=self.tempOplist[0].ljust(maxLength+1)
+        for char in paddedTitle:
+            firstLine.append(char)
+        firstLine.append("R|")
+        opAr.append(firstLine)
+        for op in oplistInFrame: 
+            tmp=["L|"," "] #open line with pipe and space for cursor
+            tmpStr=op.ljust(maxLength)#buffer item to max length, +1 for cursor
+            for char in tmpStr:#stick in one char at a time
+                tmp.append(char)
+            tmp.append("R|")#close line with pipe
+            opAr.append(tmp)
+        lastLine=["*BL"]
+        for i in range(0,maxLength+1): #+1 for cursor
+            lastLine.append("B=")
+        lastLine.append("*BR")
+        opAr.append(lastLine)
+        #draw cursor
+        cursorIndex=self.curPos-self.frame[0]+1
+        opAr[cursorIndex][1]=">"
+        #draw scroll-arrow if necessary
+        if self.frame[0]!=1: #can scroll up
+            opAr[1][-2]="cUp"
+        if len(self.tempOplist)>screenHeight-2 and self.frame[1]!=len(self.tempOplist): #can scroll down
+            opAr[-2][-2]="cDn"
         return(opAr)
 
     def getArrayDialog(self): #generates array with dialog characters in a box
@@ -200,19 +264,47 @@ class menu:
         return(diAr)
         
     def moveCursor(self,direction):
-        if direction=="up":
-            if self.curPos>1: #curPos=1 means cursor on top option
-                self.curPos-=1
-            elif self.rollable:
-                self.curPos=len(self.tempOplist)
-        elif direction=="down":
-            if self.curPos<len(self.tempOplist):
-                self.curPos+=1
-            elif self.rollable:
-                self.curPos=1
+        if self.mode=="choice":
+            if direction=="up":
+                if self.curPos>1: #curPos=1 means cursor on top option
+                    self.curPos-=1
+                    if self.curPos<self.frame[0]:
+                        self.frame[0]-=1
+                        self.frame[1]-=1
+                elif self.rollable:
+                    self.curPos=len(self.tempOplist)
+                    self.frame=[len(self.tempOplist)-screenHeight+2,len(self.tempOplist)]
+            elif direction=="down":
+                if self.curPos<len(self.tempOplist):
+                    self.curPos+=1
+                    if self.curPos>self.frame[1]:
+                        self.frame[0]+=1
+                        self.frame[1]+=1
+                elif self.rollable:
+                    self.curPos=1
+                    self.frame=self.getFrame()
+        elif self.mode=="titledChoice":
+            if direction=="up":
+                if self.curPos>2: #curPos=2 means cursor on top option
+                    self.curPos-=1
+                    if self.curPos<=self.frame[0]:
+                        self.frame[0]-=1
+                        self.frame[1]-=1
+                elif self.rollable:
+                    self.curPos=len(self.tempOplist)
+                    self.frame=[len(self.tempOplist)-screenHeight+3,len(self.tempOplist)]
+            elif direction=="down":
+                if self.curPos<len(self.tempOplist):
+                    self.curPos+=1
+                    if self.curPos>self.frame[1]:
+                        self.frame[0]+=1
+                        self.frame[1]+=1
+                elif self.rollable:
+                    self.curPos=2
+                    self.frame=self.getFrame
 
     def processInput(self,event,screen):
-        if self.mode=="choice":
+        if self.mode=="choice" or self.mode=="titledChoice":
             self.processInputChoice(event,screen)
         elif self.mode=="dialog":
             self.processInputDialog(event,screen)
@@ -1791,10 +1883,10 @@ rivalName="Should Not Display"
 placeholderMenu=menu(["You should never see this."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
 ########### Typha menus
 falseChoice=menu(["Boy","Girl"],"choice","Red.gender=self.oplist[self.curPos-1]\nself.replaceMenu(boy)","pass")
-nickChoice=menu(["ASSHAT","ASSFACE","BUTTHAT","BUTTFACE","FACEHAT","ASSBUTT",'"GARY"'],"choice","garyActionable.trainer.name=self.oplist[self.curPos-1]\nself.replaceMenu(menuDict[self.oplist[self.curPos-1]])","pass")
+nickChoice=menu(["Choose a nickname:","ASSHAT","ASSFACE","BUTTHAT","BUTTFACE","FACEHAT","ASSBUTT",'"GARY"'],"titledChoice","garyActionable.trainer.name=self.oplist[self.curPos-1]\nself.replaceMenu(menuDict[self.oplist[self.curPos-1]])","pass")
 starterMonChoice=menu(["Bulbasaur","Charmander","Squirtle"],"choice","self.pickStarter(self.oplist[self.curPos-1])","pass")
 noDice=menu(["Since it seems I can't talk either of you two out of it~","Your adventure in the world of PUNKEMON fighting starts NOW. Grab a mon and get going!"],"dialog","self.replaceMenu(starterMonChoice)","pass")
-doItAnyway=menu(["You can't scare me.","I'm gonna be the best!"],"choice","self.replaceMenu(noDice)","pass")
+doItAnyway=menu(["You can't scare me.","I'll be the best!"],"choice","self.replaceMenu(noDice)","pass")
 talkOut=menu(["I'll tell you what I told him:\nThe fighting circuit ain't no nursery school.","You've got a better chance of ending up in jail or a body bag than as a PUNKEMON CHAMPION."],"dialog","self.replaceMenu(doItAnyway)","pass")
 Intro=menu(["Yo!\nWelcome to the world of Punkemon~","My name is TYPHA.\nPeople in this hood, they call me the PUNKEMON PROFESSA.",
                   "There are creatures called PUNKEMON all up in dis world.","Some people think PUNKEMON are monsters.\nAin't totally wrong~","Some people keep 'em as pets.\nOthers use them in fights.",
@@ -1802,6 +1894,7 @@ Intro=menu(["Yo!\nWelcome to the world of Punkemon~","My name is TYPHA.\nPeople 
                   "Are you a boy, or a girl?"],"dialog","self.replaceMenu(falseChoice)","pass")
 boy=menu(["You remember my little bro.\nYou've been at each other's throats ever since you were kids.","What was your charming nickname for him again?"],"dialog","self.replaceMenu(nickChoice)","pass")
 girl=boy #code as political statement, or lazy programmer? #bothisgood
+#The above line is dead code, but I haven't deleted it because I want to keep the joke.
 asshat=menu(['Oh, yeah. "Asshat."Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 assface=menu(['Oh, yeah. "Assface."Ha!  You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 butthat=menu(['Oh, yeah. "Butthat." Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
@@ -1816,6 +1909,8 @@ startPunkemon=menu(False,"choice","pass","self.backUpMenuStack()",True,"list(Red
 startWikidex=menu(False,"dialog","pass","self.backUpMenuStack()",True,"Red.wikidexAsList()")
 startItems=menu(False,"choice","self.selectItemOutsideBattle()","self.backUpMenuStack()",True,"start.displayItemsList()")
 itemChooseMon=menu(False,"choice","self.itemOutsideBattle(self.curPos-1)","self.backUpMenuStack()",True,"Red.teamAsString()")
+longtest=menu(["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29"],"choice","self.backUpMenuStack()","self.backUpMenuStack()")
+longtesttitled=menu(["Title","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29"],"titledChoice","self.backUpMenuStack()","self.backUpMenuStack()")
 
 ########### Menus from the inescapableHellscape test world
 despairSign=menu(["There is no escape from the inescapable hellscape.","Not for you~\n ~not for him."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
@@ -1825,7 +1920,7 @@ garyAfter=menu(["Gary: Aww, man!"],"dialog","self.screen.switchTo('world')","sel
 menuDict={"Boy": boy,"Girl":girl,"FalseChoice":falseChoice,
           "nickChoice":nickChoice,"ASSHAT":asshat,"ASSFACE":assface,"BUTTHAT":butthat,"BUTTFACE":buttface,"FACEHAT":facehat,"ASSBUTT":assbutt,'"GARY"':Gary,
           "talkOut":talkOut,"doItAnyway":doItAnyway,"noDice":noDice, "You can't scare me.":noDice,"I'm gonna be the best!":noDice,
-          "Punkemon":startPunkemon,"Wikidex":startWikidex,"Items":startItems}
+          "Punkemon":startPunkemon,"Wikidex":startWikidex,"Items":startItems,"longtest":longtest,"longtesttitled":longtesttitled}
 
 
 
