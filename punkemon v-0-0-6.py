@@ -394,7 +394,7 @@ class menu:
             starterMon=Squirtle(5,"Squirtle")
             garyMon=Bulbasaur(5,"Bulbasaur")
         starterMon.trainer=self.screen.player
-        secondMon.trainer=self.screen.player
+        #secondMon.trainer=self.screen.player
         #thirdMon.trainer=self.screen.player
         self.screen.player.team=[starterMon]#,secondMon]#,thirdMon]
         self.screen.player.monsSeen.append(starterMon.species)
