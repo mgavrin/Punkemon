@@ -384,7 +384,7 @@ class menu:
     def pickStarter(self,name):
         if name=="Bulbasaur":
             starterMon=Bulbasaur(5,"Bulbasaur")
-            secondMon=Eevee(80,"Eevee")
+            #secondMon=Eevee(80,"Eevee")
             #thirdMon=Vaporeon(80,"Vaporeon")
             garyMon=Charmander(5,"Charmander")
         elif name=="Charmander":
@@ -396,7 +396,7 @@ class menu:
         starterMon.trainer=self.screen.player
         secondMon.trainer=self.screen.player
         #thirdMon.trainer=self.screen.player
-        self.screen.player.team=[starterMon,secondMon]#,thirdMon]
+        self.screen.player.team=[starterMon]#,secondMon]#,thirdMon]
         self.screen.player.monsSeen.append(starterMon.species)
         self.screen.player.monsCaught.append(starterMon.species)
         garyMon.trainer=Gary
@@ -1988,7 +1988,7 @@ powerBulbasaur.trainer=Gary
 
 garyActionable=NPCTrainer([4,0],"enemy",Gary,"West")
 signActionable=NPC("sign",[0,0],despairSign,"sign","South")
-#inescapableHellscape.actionables.append(garyActionable)
+inescapableHellscape.actionables.append(garyActionable)
 inescapableHellscape.actionables.append(signActionable)
 
 
