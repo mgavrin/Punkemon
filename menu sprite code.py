@@ -67,3 +67,5 @@ cursorUp=pygame.image.load(os.path.join("Font","cursorUp.png"))
 menuSpriteDict["cUp"]=cursorUp
 cursorDown=pygame.image.load(os.path.join("Font","cursorDown.png"))
 menuSpriteDict["cDn"]=cursorDown
+cursorOpen=pygame.image.load(os.path.join("Font","cursorOpen.png"))
+menuSpriteDict["cOp"]=cursorOpen

@@ -229,6 +229,7 @@ class battle:
                     #do some screen stuff to display the new mon
                     self.player.nextMon.status["justSentOut"]=True
                     #prevent the old mon from getting a last attack in
+                    print self.player.curMon.name,"leaving set"
                     self.player.curMon.status["leaving"]=True
                     self.switchTo("Start attack")
                 elif mon is self.player.curMon:
@@ -338,7 +339,7 @@ class battle:
                                 self.player.monsCaught.append(self.enemy.curMon.species)
                             gameScreen=self.screen
                             self.screen.activeMenus=[menu([self.enemy.curMon.name+" was caught!"],"dialog","self.screen.switchTo('world')","pass",False,False,self.screen)]
-                            self.screen.switchTo("menu")
+                            self.screen.switchTo("newMenu")
                     else:
                         self.curMenu.switchMenu(["What are you smoking? Now's not the time for that!"],"dialog")
                 else:
@@ -476,7 +477,7 @@ class battle:
     def processWin(self,event):
         if self.enemy.afterDialog:
                     self.screen.activeMenus[-1]=self.enemy.afterDialog
-                    self.screen.switchTo("menu")
+                    self.screen.switchTo("newMenu")
         else:
             self.screen.switchTo("world")
 

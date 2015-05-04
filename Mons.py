@@ -105,7 +105,6 @@ class punkemon:
         canMove=True
         messages=[]
         if self.status["leaving"]:
-            self.status["leaving"]=False
             canMove=False
             encouragement=encourageList[randint(0,len(encourageList)-1)]
             if isinstance(self.trainer,PC):
@@ -183,6 +182,9 @@ class punkemon:
                     
                 canMove=True #unlike charging moves, multiple moves go every turn for their duration
                     
+        for mon in self.trainer.team:
+            mon.status["leaving"]=False
+            #clears all leaving statuses that didn't result in a skipped move
             
         return (canMove,messages)
 

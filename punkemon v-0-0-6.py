@@ -27,17 +27,18 @@ fakeRightPress=pygame.event.Event(KEYDOWN,{"key":K_RIGHT})
 ###################### Action Items for future work sessions #############
 ###bugfixes
     #prevent side effects of moves that fail due to type matchup e.g. thundershock, thunderwave on ground punkemon
-    #stop duplicate item effect messages, assuming they actually happen.
+    #stop duplicate "go X" messages
+    #stop duplicate revive effect messages.
 ###feature expansions
+    #menus in different places on the screen
+    #write the catch formula
     #expand on start menu, detail team screen and wikidex
         #make the team overview a special menu subclass
-    #make a menu subclass for choice menus with a title and a bunch of options instead of just a bunch of options
     #choice menu widths
-    #scrolling menus (choice only?)
     #add support for sprites that look different directions
 ###Ambitious stuff!
-#make a level generator!
-#do the sprite stuff for battles (HP bars and whatnot)
+    #make a level generator!
+    #do the sprite work for battles (HP bars and whatnot)
 
 
 
@@ -126,18 +127,18 @@ class menu:
         elif self.mode=="dialog":
             return False
 
-    def getArray(self):
+    def getArray(self,top):
         if self.mode=="choice":
-            array=self.getArrayChoice()
+            array=self.getArrayChoice(top)
         elif self.mode=="titledChoice":
-            array=self.getArrayTitledChoice()
+            array=self.getArrayTitledChoice(top)
         elif self.mode=="dialog":
             array=self.getArrayDialog()
         else:
             print self.curMode+"? That's not even a menu type."
         return array
     
-    def getArrayChoice(self): #generates array with set of menu options for sprite generations
+    def getArrayChoice(self,top): #generates array with set of menu options for sprite generations
         #find length of longest menu item
         maxLength=2
         for op in self.tempOplist: #op needs to be a string
@@ -166,7 +167,10 @@ class menu:
         opAr.append(lastLine)
         #draw cursor
         cursorIndex=self.curPos-self.frame[0]+1
-        opAr[cursorIndex][1]=">"
+        if top:
+            opAr[cursorIndex][1]=">"
+        else:
+            opAr[cursorIndex][1]="cOp"
         #draw scroll-arrow if necessary
         if self.frame[0]!=1: #can scroll up
             opAr[1][-2]="cUp"
@@ -174,7 +178,7 @@ class menu:
             opAr[-2][-2]="cDn"
         return(opAr)
 
-    def getArrayTitledChoice(self): #generates array with set of menu options for sprite generations
+    def getArrayTitledChoice(self,top): #generates array with set of menu options for sprite generations
         #find length of longest menu item
         maxLength=2
         for op in self.tempOplist: #op needs to be a string
@@ -209,7 +213,10 @@ class menu:
         opAr.append(lastLine)
         #draw cursor
         cursorIndex=self.curPos-self.frame[0]+1
-        opAr[cursorIndex][1]=">"
+        if top:
+            opAr[cursorIndex][1]=">"
+        else:
+            opAr[cursorIndex][1]="cOp"
         #draw scroll-arrow if necessary
         if self.frame[0]!=1: #can scroll up
             opAr[1][-2]="cUp"
@@ -273,7 +280,8 @@ class menu:
                         self.frame[1]-=1
                 elif self.rollable:
                     self.curPos=len(self.tempOplist)
-                    self.frame=[len(self.tempOplist)-screenHeight+2,len(self.tempOplist)]
+                    newTop=max(len(self.tempOplist)-screenHeight+2,1)#ensure no 0 or negatives
+                    self.frame=[newTop,len(self.tempOplist)]
             elif direction=="down":
                 if self.curPos<len(self.tempOplist):
                     self.curPos+=1
@@ -292,7 +300,8 @@ class menu:
                         self.frame[1]-=1
                 elif self.rollable:
                     self.curPos=len(self.tempOplist)
-                    self.frame=[len(self.tempOplist)-screenHeight+3,len(self.tempOplist)]
+                    newTop=max(len(self.tempOplist)-screenHeight+3,1)
+                    self.frame=[newTop,len(self.tempOplist)]
             elif direction=="down":
                 if self.curPos<len(self.tempOplist):
                     self.curPos+=1
@@ -375,7 +384,7 @@ class menu:
     def pickStarter(self,name):
         if name=="Bulbasaur":
             starterMon=Bulbasaur(5,"Bulbasaur")
-            #secondMon=Eevee(80,"Eevee")
+            secondMon=Eevee(80,"Eevee")
             #thirdMon=Vaporeon(80,"Vaporeon")
             garyMon=Charmander(5,"Charmander")
         elif name=="Charmander":
@@ -385,9 +394,9 @@ class menu:
             starterMon=Squirtle(5,"Squirtle")
             garyMon=Bulbasaur(5,"Bulbasaur")
         starterMon.trainer=self.screen.player
-        #secondMon.trainer=self.screen.player
+        secondMon.trainer=self.screen.player
         #thirdMon.trainer=self.screen.player
-        self.screen.player.team=[starterMon]#,secondMon,thirdMon]
+        self.screen.player.team=[starterMon,secondMon]#,thirdMon]
         self.screen.player.monsSeen.append(starterMon.species)
         self.screen.player.monsCaught.append(starterMon.species)
         garyMon.trainer=Gary
@@ -398,7 +407,7 @@ class menu:
         result=[]
         names=Red.inventory.keys()
         for name in names:
-            dispStr=name+": "+str(self.screen.player.inventory[name])
+            dispStr=str(self.screen.player.inventory[name]).rjust(2,"0")+"x"+name
             result.append(dispStr)
         return result
 
@@ -408,7 +417,7 @@ class menu:
             self.tempOplist=eval(self.oplistConstructor)
         else:
             self.tempOplist=self.oplist
-        self.screen.player.selectedItemName=self.tempOplist[self.curPos-1].split(":")[0] #take only the part of "itemName: numberAvailable" before the colon
+        self.screen.player.selectedItemName=self.tempOplist[self.curPos-1].split("x",1)[1] #take only the part of "itemName: numberAvailable" before the colon
         if itemDict[self.screen.player.selectedItemName].targetsMon:
             self.addToMenuStack(itemChooseMon)
         else:
@@ -1818,10 +1827,14 @@ class screen:
         self.gameScreen.blit(self.gameSlice,dest=(0,0))
         #DRAW ALL THE MENUS
         for menu in self.activeMenus:
+            if menu==self.activeMenus[-1]:
+                top=True
+            else:
+                top=False
             if menu.oplistConstructor:
                 menu.tempOplist=eval(menu.oplistConstructor)
             drawPos=[0,0]
-            drawArray=menu.getArray()
+            drawArray=menu.getArray(top)
             for row in drawArray:
                 drawPos[0]=0
                 for cell in row:
@@ -1904,7 +1917,7 @@ assbutt=menu(['Oh, yeah. "Assbutt." Ha! You have such a way with words~'],"dialo
 Gary=menu(['Oh, yeah. "Gary". Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 
 ########### Start menu and its descendents
-start=menu(["Punkemon","Wikidex","Items"],"choice","self.addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
+start=menu(["Punkemon","Wikidex","Items","longtest","longtesttitled"],"choice","self.addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
 startPunkemon=menu(False,"choice","pass","self.backUpMenuStack()",True,"list(Red.teamAsString())")
 startWikidex=menu(False,"dialog","pass","self.backUpMenuStack()",True,"Red.wikidexAsList()")
 startItems=menu(False,"choice","self.selectItemOutsideBattle()","self.backUpMenuStack()",True,"start.displayItemsList()")
