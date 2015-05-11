@@ -27,18 +27,22 @@ fakeRightPress=pygame.event.Event(KEYDOWN,{"key":K_RIGHT})
 ###################### Action Items for future work sessions #############
 ###bugfixes
     #prevent side effects of moves that fail due to type matchup e.g. thundershock, thunderwave on ground punkemon
-    #stop duplicate "go X" messages
     #stop duplicate revive effect messages.
+    #add null messages so you can take out HP notifications without a no-messages error
 ###feature expansions
+    #status effect display (colored dots next to HP bar?)
+    #total-mons/remaining-mons
+    #pull health bars, status effects, mon counts into their own function
     #menus in different places on the screen
     #write the catch formula
     #expand on start menu, detail team screen and wikidex
         #make the team overview a special menu subclass
-    #choice menu widths
-    #add support for sprites that look different directions
+    #choice menu widths (what is this? I was too vague)
 ###Ambitious stuff!
+    #background music (less ambitious than frivolous but still)
     #make a level generator!
-    #do the sprite work for battles (HP bars and whatnot)
+    #do the sprite work for battles (requires an artist)
+    #saving and loading games
 
 
 
@@ -768,6 +772,7 @@ class character:
         self.curMon=team[0] #mon that goes out when battle starts
         self.nextMon=False #the mon you're in the middle of switching to due to vagaries of control structure and turn timing
         self.inventory={}#the inventory used for display. Maps names to # you have.
+        self.facingDict={"North":"_U","South":"_D","East":"_R","West":"_L","none":""}
 
     def getNumUnfainted(self):
         num=0
@@ -845,6 +850,7 @@ class PC(character):
         self.lastItem=False #last instantaneous item used
         self.stepsToItemEnd=0
         self.totalSteps=0
+        self.facingDirection="South"
 
     def takeStep(self):
         self.totalSteps+=1
@@ -1303,6 +1309,7 @@ class actionable:
         self.sprite=sprite
         self.sightLine=sightLine#the distance they can see
         self.sightLineSquares=[] #this will get populated when the world inits
+        self.facingDict={"North":"_U","South":"_D","East":"_R","West":"_L","none":""}
 
     def getSightLine(self,terrainMap): #returns a list of 2-item locations that are their sightline
         sightLineSquares=[]
@@ -1313,21 +1320,22 @@ class actionable:
             counter+=1
             if self.facingDirection=="North":
                 nextPos=[curPos[0],curPos[1]-1]
-            if self.facingDirection=="South":
+            elif self.facingDirection=="South":
                 nextPos=[curPos[0],curPos[1]+1]
-            if self.facingDirection=="East":
+            elif self.facingDirection=="East":
                 nextPos=[curPos[0]+1,curPos[1]]
-            if self.facingDirection=="West":
+            elif self.facingDirection=="West":
                 nextPos=[curPos[0]-1,curPos[1]]
+            elif self.facingDirection=="none":
+                nextPos=[curPos[0],curPos[1]]
+                blocked=True
             if nextPos[0]<0 or nextPos[1]<0 or nextPos[0]>len(terrainMap[0]) or nextPos[1]>len(terrainMap):
                 blocked=True
-            else:
+            if not blocked:
                 newTerr=terrainMap[nextPos[1]][nextPos[0]]
                 if newTerr in (0,3,4,6):
                     sightLineSquares.append(nextPos)
                     curPos=nextPos
-                else:
-                    blocked=True
         self.sightLineSquares=sightLineSquares
         return sightLineSquares                
 
@@ -1336,11 +1344,11 @@ class actionable:
 
     def addToSurface(self,screen,pos):
         #Draws the actionable's sprite to the provided screen at the given pos (x,y)
-        screen.blit(pygame.image.load(os.path.join("sprites",self.sprite+".png")),pos)
+        screen.blit(pygame.image.load(os.path.join("sprites",self.sprite+self.facingDict[self.facingDirection]+".png")),pos)
         
 
 class NPC(actionable): #randos who stand around and talk and don't fight
-    def __init__(self,name,pos,dialog,sprite,facingDirection="North",item=False,sightLine=0):
+    def __init__(self,name,pos,dialog,sprite,facingDirection="South",item=False,sightLine=0):
         self.name=name
         self.dialog=dialog #a dialog menu that ends with switching to World
         self.sprite=pygame.image.load(os.path.join("sprites","npc.png")) #change this when you give npcs their own individual sprites
@@ -1357,7 +1365,7 @@ class NPC(actionable): #randos who stand around and talk and don't fight
         #bring up a menu with self.dialog
 
 class NPCTrainer(actionable): #randos who stand around and DO fight
-    def __init__(self,pos,sprite,trainer,facingDirection="North",foughtDialog=["I did my best! I have no regrets!"]):
+    def __init__(self,pos,sprite,trainer,facingDirection="South",foughtDialog=["I did my best! I have no regrets!"]):
         self.trainer=trainer
         self.sprite=pygame.image.load(os.path.join("sprites","enemy.png")) #change this when you give trainers their own individual sprites
         self.permPos=pos#2-element list of their position in the world
@@ -1481,7 +1489,6 @@ class screen:
             print "xDim is even, make it odd."
         if yDim%2==0:
             print "yDim is even, make it odd."
-        self.background=pygame.image.load("jedipunzel.jpg")
         self.screenSize=(pixel*xDim,pixel*yDim)
         self.gameScreen=pygame.display.set_mode(self.screenSize,0,32)
         self.backgroundColor=pygame.Color(255,255,255)
@@ -1498,7 +1505,7 @@ class screen:
         self.playerPos=[1,1] #Initial position [x,y] of the player.
         self.switchTo(self.mode)
         self.player=Red
-        self.playerDirection="South"
+        Red.facingDirection="South"
         self.curBattle=False #battle(Red,Gary,self)
         for menu in allMenus:
             menu.screen=self
@@ -1613,13 +1620,13 @@ class screen:
         if not event:
             return #if the player has done nothing worth noting, do nothing.
         elif event.key==K_a:
-            if self.playerDirection=="North":
+            if self.player.facingDirection=="North":
                 actSquare=[self.playerPos[0],self.playerPos[1]-1]
-            if self.playerDirection=="South":
+            if self.player.facingDirection=="South":
                 actSquare=[self.playerPos[0],self.playerPos[1]+1]
-            if self.playerDirection=="West":
+            if self.player.facingDirection=="West":
                 actSquare=[self.playerPos[0]-1,self.playerPos[1]]
-            if self.playerDirection=="East":
+            if self.player.facingDirection=="East":
                 actSquare=[self.playerPos[0]+1,self.playerPos[1]]
             thingFound=self.curWorld.tempSpriteMap[actSquare[1]][actSquare[0]][0]
             if isinstance(thingFound,actionable):
@@ -1634,16 +1641,16 @@ class screen:
             self.terrainDebugMode=not self.terrainDebugMode  
         else: #move the player around
             if event.key==K_UP:
-                self.playerDirection="North"
+                self.player.facingDirection="North"
                 tempPos=[self.playerPos[0],self.playerPos[1]-1]
             elif event.key==K_DOWN:
-                self.playerDirection="South"
+                self.player.facingDirection="South"
                 tempPos=[self.playerPos[0],self.playerPos[1]+1]
             elif event.key==K_LEFT:
-                self.playerDirection="West"
+                self.player.facingDirection="West"
                 tempPos=[self.playerPos[0]-1,self.playerPos[1]]
             elif event.key==K_RIGHT:
-                self.playerDirection="East"
+                self.player.facingDirection="East"
                 tempPos=[self.playerPos[0]+1,self.playerPos[1]]
             self.playerPos=self.checkMove(tempPos) #checkMove should return tempPos if the attempted square is passable, playerPos otherwise
             if self.newOpponent:
@@ -1778,7 +1785,10 @@ class screen:
                     surface.blit(worldBGSpriteDict[cell[1]],dest=[drawPos[0]*pixel, drawPos[1]*pixel])
                 elif not self.terrainDebugMode:
                     surface.blit(worldBGSpriteDict[cell[1]],dest=[drawPos[0]*pixel, drawPos[1]*pixel])
-                    surface.blit(worldFGSpriteDict[cell[0]],dest=[drawPos[0]*pixel, drawPos[1]*pixel])
+                    if cell[0]=="@":
+                        surface.blit(worldFGSpriteDict[cell[0]+self.player.facingDict[self.player.facingDirection]],dest=[drawPos[0]*pixel, drawPos[1]*pixel])
+                    else:
+                        surface.blit(worldFGSpriteDict[cell[0]],dest=[drawPos[0]*pixel, drawPos[1]*pixel])
                 else:
                     player=(cell[0]=="@")
                     surface.blit(self.getTerrainTile(self.curWorld.getTerrain(cell),player),dest=[drawPos[0]*pixel, drawPos[1]*pixel])
@@ -1853,9 +1863,48 @@ class screen:
                 self.gameScreen.blit(menuSpriteDict[cell],dest=[drawPos[0]*pixel, drawPos[1]*pixel])
                 drawPos[0]+=1
             drawPos[1]+=1
+        if not self.player.curMon:
+            playerHealthFraction=0.0
+        else:
+            playerHealthFraction=(self.player.curMon.tempStats["HP"]+0.0)/self.player.curMon.permStats["HP"]
+        if not self.curBattle.enemy.curMon:
+            enemyHealthFraction=0.0
+        else:
+            enemyHealthFraction=(self.curBattle.enemy.curMon.tempStats["HP"]+0.0)/self.curBattle.enemy.curMon.permStats["HP"]
+        self.gameScreen.blit(self.getHealthBar(9,1,playerHealthFraction),(15*pixel,15*pixel))
+        self.gameScreen.blit(self.getHealthBar(9,1,enemyHealthFraction),(1*pixel,7*pixel))
         pygame.display.flip()
-        
-            
+
+    def getHealthBar(self,cellsLong,cellsHigh,value):
+        #takes a length and height in cells and a floating point (0,1] fraction-of-health-left
+        #returns a surface for blitting
+        healthBarSurface=pygame.Surface((pixel*cellsLong,pixel*cellsHigh),0,32)
+        barLength=(cellsLong-2*cellsHigh)*pixel+2*cellsHigh*pixel*11/15
+        posBarLength=ceil(barLength*value) #length in (screen, not game) pixels that is full
+        negBarLength=barLength-posBarLength
+        if value>=0.5:
+            color=(78,171,24)
+        elif value>=0.1:
+            color=(244,232,61)
+        else:
+            color=(227,85,14)
+        white=(255,255,255)
+        offsetX=4
+        offsetY=4
+        #draw the positive bar
+        healthBarSurface.fill(color,Rect(offsetX*cellsHigh,offsetY*cellsHigh,posBarLength,6*cellsHigh))
+        #draw the negative bar
+        healthBarSurface.fill(white,Rect(offsetX*cellsHigh+posBarLength,offsetY*cellsHigh,negBarLength,6*cellsHigh))
+        #draw the left end
+        scaledBarLeft=pygame.transform.smoothscale(healthBarLeft,(pixel*cellsHigh,pixel*cellsHigh))
+        healthBarSurface.blit(scaledBarLeft,(0,0))
+        #draw the right end
+        scaledBarRight=pygame.transform.smoothscale(healthBarRight,(pixel*cellsHigh,pixel*cellsHigh))
+        healthBarSurface.blit(scaledBarRight,(pixel*(cellsLong-cellsHigh),0))
+        #draw the middle
+        scaledBarMiddle=pygame.transform.smoothscale(healthBarMiddle,(pixel*(cellsLong-2*cellsHigh),pixel*cellsHigh))
+        healthBarSurface.blit(scaledBarMiddle,(pixel*cellsHigh,0))
+        return healthBarSurface
 
 
 #################Generating individual things
@@ -1865,7 +1914,11 @@ numMoves=4
 pixel=15 #side length of sprite grid unit in pixels
 screenWidth=25
 screenHeight=21
-encourageList=["It's not over!","Get 'em!","I choose you!","You can do it!"]        
+encourageList=["It's not over!","Get 'em!","I choose you!","You can do it!"]
+
+placeholderSquirtle=Squirtle(8,"Squirtle")
+Red=PC("Red","female",[placeholderSquirtle],20) # Squirtle is a placeholder. You needn't start with Squirtle if you don't want to. *coughbutyoushouldcough*
+
 worldBGSpriteDict={}
 water=pygame.image.load(os.path.join("sprites","water.png"))
 worldBGSpriteDict["w"]=water
@@ -1876,6 +1929,9 @@ worldBGSpriteDict["G"]=tallGrass
 dirt=pygame.image.load(os.path.join("sprites","p.png"))
 worldBGSpriteDict["-"]=dirt
 
+healthBarLeft=pygame.image.load(os.path.join("sprites","barEndLeft.png"))
+healthBarRight=pygame.image.load(os.path.join("sprites","barEndRight.png"))
+healthBarMiddle=pygame.image.load(os.path.join("sprites","barMiddle.png"))
 
 worldFGSpriteDict={}
 rock=pygame.image.load(os.path.join("sprites","b.png"))
@@ -1886,17 +1942,25 @@ blank=pygame.image.load(os.path.join("sprites","blank.png"))
 worldFGSpriteDict[" "]=blank
 player=pygame.image.load(os.path.join("sprites","player.png"))
 worldFGSpriteDict["@"]=player
+playerU=pygame.image.load(os.path.join("sprites","player_U.png"))
+worldFGSpriteDict["@_U"]=playerU
+playerL=pygame.image.load(os.path.join("sprites","player_L.png"))
+worldFGSpriteDict["@_L"]=playerL
+playerR=pygame.image.load(os.path.join("sprites","player_R.png"))
+worldFGSpriteDict["@_R"]=playerR
+playerD=pygame.image.load(osa.path.join("sprites","player_D.png"))
+worldFGSpriteDict["@_D"]=playerD
+            
 
 
-placeholderSquirtle=Squirtle(8,"Squirtle")
-Red=PC("Red","female",[placeholderSquirtle],20) # Squirtle is a placeholder. You needn't start with Squirtle if you don't want to. *coughbutyoushouldcough*
 
 rivalName="Should Not Display"
+
 ###### Menu instances (self,oplist,mode,execOnA,execOnS,rollable=False,oplistConstructor=False,screen=False) sorted by world or speaker
 placeholderMenu=menu(["You should never see this."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
 ########### Typha menus
 falseChoice=menu(["Boy","Girl"],"choice","Red.gender=self.oplist[self.curPos-1]\nself.replaceMenu(boy)","pass")
-nickChoice=menu(["Choose a nickname:","ASSHAT","ASSFACE","BUTTHAT","BUTTFACE","FACEHAT","ASSBUTT",'"GARY"'],"titledChoice","garyActionable.trainer.name=self.oplist[self.curPos-1]\nself.replaceMenu(menuDict[self.oplist[self.curPos-1]])","pass")
+nickChoice=menu(["Choose a nickname:","ASSHAT","ASSFACE","BUTTHAT","BUTTFACE","FACEHAT","ASSBUTT",'"GARY"'],"titledChoice","garyActionable.trainer.name=self.oplist[self.curPos-1]\ngaryBefore.oplist[0]=garyActionable.trainer.name+garyBefore.oplist[0]\nself.replaceMenu(menuDict[self.oplist[self.curPos-1]])","pass")
 starterMonChoice=menu(["Bulbasaur","Charmander","Squirtle"],"choice","self.pickStarter(self.oplist[self.curPos-1])","pass")
 noDice=menu(["Since it seems I can't talk either of you two out of it~","Your adventure in the world of PUNKEMON fighting starts NOW. Grab a mon and get going!"],"dialog","self.replaceMenu(starterMonChoice)","pass")
 doItAnyway=menu(["You can't scare me.","I'll be the best!"],"choice","self.replaceMenu(noDice)","pass")
@@ -1914,7 +1978,7 @@ butthat=menu(['Oh, yeah. "Butthat." Ha! You have such a way with words~'],"dialo
 buttface=menu(['Oh, yeah. "Buttface." Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 facehat=menu(['Oh, yeah. "Facehat." Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 assbutt=menu(['Oh, yeah. "Assbutt." Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
-Gary=menu(['Oh, yeah. "Gary". Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
+GaryNickname=menu(['Oh, yeah. "Gary". Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 
 ########### Start menu and its descendents
 start=menu(["Punkemon","Wikidex","Items","longtest","longtesttitled"],"choice","self.addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
@@ -1927,11 +1991,11 @@ longtesttitled=menu(["Title","1","2","3","4","5","6","7","8","9","10","11","12",
 
 ########### Menus from the inescapableHellscape test world
 despairSign=menu(["There is no escape from the inescapable hellscape.","Not for you~\n ~not for him."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
-garyBefore=menu(["Gary: Hey! How did you get here?"],"dialog","self.screen.processResponse(('battle',Gary))","self.screen.processResponse(('battle',Gary))")
+garyBefore=menu([": Hey! How did you get here?"],"dialog","self.screen.processResponse(('battle',Gary))","self.screen.processResponse(('battle',Gary))",False)
 garyAfter=menu(["Gary: Aww, man!"],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
 
 menuDict={"Boy": boy,"Girl":girl,"FalseChoice":falseChoice,
-          "nickChoice":nickChoice,"ASSHAT":asshat,"ASSFACE":assface,"BUTTHAT":butthat,"BUTTFACE":buttface,"FACEHAT":facehat,"ASSBUTT":assbutt,'"GARY"':Gary,
+          "nickChoice":nickChoice,"ASSHAT":asshat,"ASSFACE":assface,"BUTTHAT":butthat,"BUTTFACE":buttface,"FACEHAT":facehat,"ASSBUTT":assbutt,'"GARY"':GaryNickname,
           "talkOut":talkOut,"doItAnyway":doItAnyway,"noDice":noDice, "You can't scare me.":noDice,"I'm gonna be the best!":noDice,
           "Punkemon":startPunkemon,"Wikidex":startWikidex,"Items":startItems,"longtest":longtest,"longtesttitled":longtesttitled}
 
@@ -1984,10 +2048,9 @@ Red.inventory["Water stone"]=1
 Red.inventory["Fire stone"]=1
 
 Gary=character([starterBulbasaur],"Gary","wait for it",100,garyBefore,garyAfter,"normal")
-powerBulbasaur.trainer=Gary
 
-garyActionable=NPCTrainer([4,0],"enemy",Gary,"West")
-signActionable=NPC("sign",[0,0],despairSign,"sign","South")
+garyActionable=NPCTrainer([4,0],"red",Gary,"West")
+signActionable=NPC("sign",[0,0],despairSign,"sign","none")
 inescapableHellscape.actionables.append(garyActionable)
 inescapableHellscape.actionables.append(signActionable)
 
@@ -2008,3 +2071,4 @@ game=screen(screenWidth,screenHeight,inescapableHellscape) #START
 #Charmander learning Splash...twice.
 #eternal rival battle
 #Two Garys. That's 100% more Garys than we had yesterday and 100% more Garys than we want. (And none of them is Garys Vakarian.)
+#healh bar aspect ratios of 12:1 or 12:5

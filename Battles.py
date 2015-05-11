@@ -537,7 +537,8 @@ class battle:
                 for i in range(0,numHits):
                     damage=move.getDamage(attacker,defender)
                     if damage>0:
-                        messages.append(str(attacker)+" hits for "+str(damage)+" damage!")
+                        #messages.append(str(attacker)+" hits for "+str(damage)+" damage!")
+                        pass
                     else:
                         pass #this is where special messages go if/when you want them
                     defender.tempStats["HP"]-=damage
