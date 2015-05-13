@@ -9,7 +9,7 @@ scratch=move("Scratch",40,100,35,"Normal",False,False)
 ##Bulbasaur
 leechSeed=move("Leech Seed",0,90,10,"Grass",False,"100 seeded", " was seeded!")
 vineWhip=move("Vine Whip",35,100,10,"Grass",False,False)
-poisonPowder=move("Poisonpowder",0,75,35,"Poison","100 poisoned"," was poisoned!")
+poisonPowder=move("Poisonpowder",0,75,35,"Poison",False,"100 poisoned"," was poisoned!")
 razorLeaf=move("Razor Leaf",55,95,25,"Grass",False,False)
 growth=move("Growth",0,100,40,"Normal",False,"self Special 1","'s special rose!")
 sleepPowder=move("Sleep Powder",0,75,15,"Grass",False,"100 sleep"," fell asleep!")

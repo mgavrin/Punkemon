@@ -9,6 +9,7 @@ class battle:
         screen.curBattle=self
         player.curMon=player.team[0]
         enemy.curMon=enemy.team[0]
+        
         self.setupBattle()
         self.curPhase="start" # Options:"start", "initial input", "first attack", "second attack","between attacks", "after attacks"
         self.oldPhase="just started"
@@ -229,7 +230,6 @@ class battle:
                     #do some screen stuff to display the new mon
                     self.player.nextMon.status["justSentOut"]=True
                     #prevent the old mon from getting a last attack in
-                    print self.player.curMon.name,"leaving set"
                     self.player.curMon.status["leaving"]=True
                     self.switchTo("Start attack")
                 elif mon is self.player.curMon:

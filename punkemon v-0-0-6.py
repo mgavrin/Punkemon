@@ -26,14 +26,16 @@ fakeRightPress=pygame.event.Event(KEYDOWN,{"key":K_RIGHT})
 
 ###################### Action Items for future work sessions #############
 ###bugfixes
+    #replace (ragged-edged) drawn status color dots with nicer images?
+    #get darkened-pokeball art instead of hashtags
     #prevent side effects of moves that fail due to type matchup e.g. thundershock, thunderwave on ground punkemon
     #stop duplicate revive effect messages.
     #add null messages so you can take out HP notifications without a no-messages error
 ###feature expansions
-    #status effect display (colored dots next to HP bar?)
-    #total-mons/remaining-mons
-    #pull health bars, status effects, mon counts into their own function
-    #menus in different places on the screen
+    #numerical HP display
+    #display mon names (placement on screen? font?)
+    #XP to next level display
+    #menus in different places on the screen?
     #write the catch formula
     #expand on start menu, detail team screen and wikidex
         #make the team overview a special menu subclass
@@ -41,7 +43,7 @@ fakeRightPress=pygame.event.Event(KEYDOWN,{"key":K_RIGHT})
 ###Ambitious stuff!
     #background music (less ambitious than frivolous but still)
     #make a level generator!
-    #do the sprite work for battles (requires an artist)
+    #do the sprite work for battles (requires an Artist)
     #saving and loading games
 
 
@@ -388,8 +390,7 @@ class menu:
     def pickStarter(self,name):
         if name=="Bulbasaur":
             starterMon=Bulbasaur(5,"Bulbasaur")
-            #secondMon=Eevee(80,"Eevee")
-            #thirdMon=Vaporeon(80,"Vaporeon")
+            #secondMon=Vaporeon(80,"Vaporeon")
             garyMon=Charmander(5,"Charmander")
         elif name=="Charmander":
             starterMon=Charmander(5,"Charmander")
@@ -441,7 +442,7 @@ class menu:
 
 
 ########## Battle menus: simplified menus for use in battle.
-########## Currently used to display all available battle information, because graphics  haven't been done yet.
+########## Currently used to display most of the available battle information, because graphics aren't done yet.
 class battleMenu:
     def __init__(self,curMode,oplist):
         self.curMode=curMode #either "choice" or "dialog"
@@ -462,9 +463,9 @@ class battleMenu:
         
     def getArray(self):
         if self.curMode=="choice":
-            array=self.getArrayChoice()
+            array=self.getArrayChoice() #modify this to deal with null messages?
         elif self.curMode=="dialog":
-            array=self.getArrayDialog()
+            array=self.getArrayDialog() #modify this to deal with null messages?
         else:
             print self.curMode+"? That's not even a battle menu type."
         return array
@@ -1427,7 +1428,7 @@ B1=testBuilding(O1)
 
 
 ########## Maps    
-testMap=[
+testMap=[ #obsolete one-char map design
         ["x","x","x","x","x","x"],
         ["x","G","G","G","G","x"],
         ["x"," "," "," "," ","x"],        
@@ -1439,7 +1440,7 @@ testMap=[
         ["x","x","x","x","x","x"]
                                 ]
 
-blankMap=[
+blankMap=[ #obsolete one-char map design
         ["x","x","x","x","x","x"],
         ["x"," "," "," "," ","x"],
         ["x"," "," "," "," ","x"],        
@@ -1630,6 +1631,15 @@ class screen:
                 actSquare=[self.playerPos[0]+1,self.playerPos[1]]
             thingFound=self.curWorld.tempSpriteMap[actSquare[1]][actSquare[0]][0]
             if isinstance(thingFound,actionable):
+                if thingFound.facingDirection!="none":
+                    if self.player.facingDirection=="North":
+                        thingFound.facingDirection=="South"
+                    if self.player.facingDirection=="South":
+                        thingFound.facingDirection=="North"
+                    if self.player.facingDirection=="East":
+                        thingFound.facingDirection=="West"
+                    if self.player.facingDirection=="West":
+                        thingFound.facingDirection=="East"
                 response=thingFound.respond()
                 self.processResponse(response)
         elif event.key==K_SPACE:
@@ -1854,6 +1864,11 @@ class screen:
         pygame.display.flip()
 
     def drawBattle(self):
+        self.drawBattleMenu() 
+        self.drawBattleGraphics()
+        pygame.display.flip()
+
+    def drawBattleMenu(self): #modify this to deal with null messages?
         self.gameScreen.fill(self.backgroundColor)
         drawPos=[0,0]
         drawArray=self.curBattle.getArray()
@@ -1863,6 +1878,9 @@ class screen:
                 self.gameScreen.blit(menuSpriteDict[cell],dest=[drawPos[0]*pixel, drawPos[1]*pixel])
                 drawPos[0]+=1
             drawPos[1]+=1
+
+    def drawBattleGraphics(self):
+        #health bars
         if not self.player.curMon:
             playerHealthFraction=0.0
         else:
@@ -1871,9 +1889,60 @@ class screen:
             enemyHealthFraction=0.0
         else:
             enemyHealthFraction=(self.curBattle.enemy.curMon.tempStats["HP"]+0.0)/self.curBattle.enemy.curMon.permStats["HP"]
-        self.gameScreen.blit(self.getHealthBar(9,1,playerHealthFraction),(15*pixel,15*pixel))
-        self.gameScreen.blit(self.getHealthBar(9,1,enemyHealthFraction),(1*pixel,7*pixel))
-        pygame.display.flip()
+        playerHealthBarPos=(15*pixel,15*pixel)
+        enemyHealthBarPos=(1*pixel,7*pixel)
+        healthBarWidth=9
+        self.gameScreen.blit(self.getHealthBar(healthBarWidth,1,playerHealthFraction),playerHealthBarPos)
+        self.gameScreen.blit(self.getHealthBar(healthBarWidth,1,enemyHealthFraction),enemyHealthBarPos)
+        
+        #total mons and mons remaining
+        playerMonsUnfainted=[]
+        enemyMonsUnfainted=[]
+        for mon in self.curBattle.player.team:
+            if mon.tempStats["HP"]>0:
+                playerMonsUnfainted.append(1)
+            else:
+                playerMonsUnfainted.append(0)
+        for mon in self.curBattle.enemy.team:
+            if mon.tempStats["HP"]>0:
+                enemyMonsUnfainted.append(1)
+            else:
+                enemyMonsUnfainted.append(0)
+        for i in range(0,len(playerMonsUnfainted)):
+            #change the sprites here when Rob does the art!
+            if playerMonsUnfainted[i]: #unfainted mon, blit regular punkeball
+                ballSprite=cornerBallTL
+            else: #fainted mon, blit darkened punkeball
+                ballSprite=hashTag
+            self.gameScreen.blit(ballSprite,(playerHealthBarPos[0]+i*1.5*pixel,playerHealthBarPos[1]-pixel))
+        for i in range(0,len(enemyMonsUnfainted)):
+            #change the sprites here when Rob does the art!
+            if enemyMonsUnfainted[i]: #unfainted mon, blit regular punkeball
+                ballSprite=cornerBallTL
+            else: #fainted mon, blit darkened punkeball
+                ballSprite=hashTag
+            self.gameScreen.blit(ballSprite,(enemyHealthBarPos[0]+i*1.5*pixel,enemyHealthBarPos[1]-pixel))
+            
+        #status markers
+        markerWidth=35
+        playerMonStatusColors=[]
+        enemyMonStatusColors=[]
+        playerMon=self.curBattle.player.curMon
+        enemyMon=self.curBattle.enemy.curMon
+        for status in statusFlags: #list of potentially displayed status ailments
+            if playerMon and playerMon.status[status]:
+                playerMonStatusColors.append(statusFlags[status])
+            if enemyMon and enemyMon.status[status]:
+                enemyMonStatusColors.append(statusFlags[status])
+        for i in range(0,len(playerMonStatusColors)):
+            flag=playerMonStatusColors[i]
+            position=(playerHealthBarPos[0]-markerWidth*(i+1),playerHealthBarPos[1])
+            self.gameScreen.blit(flag,position)
+        for i in range(0,len(enemyMonStatusColors)):
+            flag=enemyMonStatusColors[i]
+            position=(enemyHealthBarPos[0]+pixel*healthBarWidth+markerWidth*i,enemyHealthBarPos[1])
+            self.gameScreen.blit(flag,position)
+            
 
     def getHealthBar(self,cellsLong,cellsHigh,value):
         #takes a length and height in cells and a floating point (0,1] fraction-of-health-left
@@ -1948,10 +2017,17 @@ playerL=pygame.image.load(os.path.join("sprites","player_L.png"))
 worldFGSpriteDict["@_L"]=playerL
 playerR=pygame.image.load(os.path.join("sprites","player_R.png"))
 worldFGSpriteDict["@_R"]=playerR
-playerD=pygame.image.load(osa.path.join("sprites","player_D.png"))
+playerD=pygame.image.load(os.path.join("sprites","player_D.png"))
 worldFGSpriteDict["@_D"]=playerD
-            
 
+poisonFlag=pygame.image.load(os.path.join("sprites","flagPsn.png"))
+burnedFlag=pygame.image.load(os.path.join("sprites","flagBrn.png"))
+frozenFlag=pygame.image.load(os.path.join("sprites","flagFrz.png"))
+sleepFlag=pygame.image.load(os.path.join("sprites","flagSlp.png"))
+paralyzedFlag=pygame.image.load(os.path.join("sprites","flagPar.png"))
+confusedFlag=pygame.image.load(os.path.join("sprites","flagCon.png"))
+statusFlags={"poisoned":poisonFlag,"burned":burnedFlag,"frozen":frozenFlag,
+                  "sleep":sleepFlag,"paralyzed":paralyzedFlag,"confused":confusedFlag}
 
 
 rivalName="Should Not Display"
@@ -1981,13 +2057,15 @@ assbutt=menu(['Oh, yeah. "Assbutt." Ha! You have such a way with words~'],"dialo
 GaryNickname=menu(['Oh, yeah. "Gary". Ha! You have such a way with words~'],"dialog","self.replaceMenu(talkOut)","pass")
 
 ########### Start menu and its descendents
-start=menu(["Punkemon","Wikidex","Items","longtest","longtesttitled"],"choice","self.addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
+start=menu(["Punkemon","Wikidex","Items","longtest","longtesttitled","Stats","Save"],"choice","self.addToMenuStack(menuDict[self.oplist[self.curPos-1]])","self.screen.switchTo('world')",True)
 startPunkemon=menu(False,"choice","pass","self.backUpMenuStack()",True,"list(Red.teamAsString())")
 startWikidex=menu(False,"dialog","pass","self.backUpMenuStack()",True,"Red.wikidexAsList()")
 startItems=menu(False,"choice","self.selectItemOutsideBattle()","self.backUpMenuStack()",True,"start.displayItemsList()")
 itemChooseMon=menu(False,"choice","self.itemOutsideBattle(self.curPos-1)","self.backUpMenuStack()",True,"Red.teamAsString()")
 longtest=menu(["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29"],"choice","self.backUpMenuStack()","self.backUpMenuStack()")
 longtesttitled=menu(["Title","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29"],"titledChoice","self.backUpMenuStack()","self.backUpMenuStack()")
+startStats=menu(["Stats not implemented yet"],"dialog","self.backUpMenuStack()","self.backUpMenuStack()")
+saveGame=menu(["all is vanity\nand the pursuit\n         of the wind\nyou cannot save yet"],"dialog","self.backUpMenuStack()","self.backUpMenuStack()")
 
 ########### Menus from the inescapableHellscape test world
 despairSign=menu(["There is no escape from the inescapable hellscape.","Not for you~\n ~not for him."],"dialog","self.screen.switchTo('world')","self.screen.switchTo('world')")
@@ -1997,7 +2075,7 @@ garyAfter=menu(["Gary: Aww, man!"],"dialog","self.screen.switchTo('world')","sel
 menuDict={"Boy": boy,"Girl":girl,"FalseChoice":falseChoice,
           "nickChoice":nickChoice,"ASSHAT":asshat,"ASSFACE":assface,"BUTTHAT":butthat,"BUTTFACE":buttface,"FACEHAT":facehat,"ASSBUTT":assbutt,'"GARY"':GaryNickname,
           "talkOut":talkOut,"doItAnyway":doItAnyway,"noDice":noDice, "You can't scare me.":noDice,"I'm gonna be the best!":noDice,
-          "Punkemon":startPunkemon,"Wikidex":startWikidex,"Items":startItems,"longtest":longtest,"longtesttitled":longtesttitled}
+          "Punkemon":startPunkemon,"Wikidex":startWikidex,"Items":startItems,"longtest":longtest,"longtesttitled":longtesttitled,"Stats":startStats,"Save":saveGame}
 
 
 
