@@ -7,7 +7,10 @@ class battle:
         self.screenMessage=""
         self.curMenu=battleMenu("dialog",["bananaHammock"])
         screen.curBattle=self
-        player.curMon=player.team[0]
+        for i in range(0,len(player.team)):
+            if player.team[i].tempStats["HP"]>0:
+                player.curMon=player.team[i]
+                break
         enemy.curMon=enemy.team[0]
         
         self.setupBattle()

@@ -26,14 +26,11 @@ fakeRightPress=pygame.event.Event(KEYDOWN,{"key":K_RIGHT})
 
 ###################### Action Items for future work sessions #############
 ###bugfixes
-    #replace (ragged-edged) drawn status color dots with nicer images?
-    #get darkened-pokeball art instead of hashtags
     #prevent side effects of moves that fail due to type matchup e.g. thundershock, thunderwave on ground punkemon
     #stop duplicate revive effect messages.
     #add null messages so you can take out HP notifications without a no-messages error
 ###feature expansions
     #numerical HP display
-    #display mon names (placement on screen? font?)
     #XP to next level display
     #menus in different places on the screen?
     #write the catch formula
@@ -390,7 +387,7 @@ class menu:
     def pickStarter(self,name):
         if name=="Bulbasaur":
             starterMon=Bulbasaur(5,"Bulbasaur")
-            #secondMon=Vaporeon(80,"Vaporeon")
+            #secondMon=Hovisquirrel(28,"Hovisquirrel")
             garyMon=Charmander(5,"Charmander")
         elif name=="Charmander":
             starterMon=Charmander(5,"Charmander")
@@ -596,7 +593,7 @@ class move:
             if defender.status["charging"]:
                 hit=False,[] #auto-miss on dig and fly
         if attacker.status["confused"] and randint(0,1)==0:
-            messages.append(attacker,"hurt itself in its confusion!")
+            messages.append(attacker.name+" hurt itself in its confusion!")
             attacker.tempStats["HP"]-=hitYourself.getDamage(attacker,defender)
             hit=False
         
@@ -604,7 +601,7 @@ class move:
         
         else:
             if attacker.status["confused"]:
-                messages.append(attacker+" attacked despite confusion!")
+                messages.append(attacker.name+" attacked despite confusion!")
             hitChance=float(self.baseAcc)*attacker.accuracy/defender.evasion
             if randint(0,99)<hitChance:
                 hit=True
@@ -871,6 +868,12 @@ class PC(character):
     def wikidexAsList(self):
         statsString='Punkemon seen: '+str(len(self.monsSeen))+'\n'+'Punkemon caught: '+str(len(self.monsCaught))
         return [statsString]
+
+    def hasUnfaintedMons(self):
+        for i in self.team:
+            if i.tempStats["HP"]>0:
+                return True
+        return False
 
 class wildPunkemon(character):
     def __init__(self,name,team):
@@ -1663,7 +1666,7 @@ class screen:
                 self.player.facingDirection="East"
                 tempPos=[self.playerPos[0]+1,self.playerPos[1]]
             self.playerPos=self.checkMove(tempPos) #checkMove should return tempPos if the attempted square is passable, playerPos otherwise
-            if self.newOpponent:
+            if self.newOpponent and self.player.hasUnfaintedMons():
                 self.newOpponent.heal()
                 wildTrainer=wildPunkemon("Wild "+self.newOpponent.name,[self.newOpponent])
                 self.newOpponent.trainer=wildTrainer
@@ -1676,8 +1679,11 @@ class screen:
             self.activeMenus[-1].curSlide=1
             self.switchTo("newMenu")
         elif response[0]=="battle":
-            self.curBattle=battle(self.player,response[1],self)
-            self.switchTo("battle")
+            if self.player.hasUnfaintedMons():
+                self.curBattle=battle(self.player,response[1],self)
+                self.switchTo("battle")
+            else:
+                self.switchTo("world")
 
     def checkMove(self,tempPos):
         #Returns the new position after an attempted move
@@ -1890,37 +1896,63 @@ class screen:
         else:
             enemyHealthFraction=(self.curBattle.enemy.curMon.tempStats["HP"]+0.0)/self.curBattle.enemy.curMon.permStats["HP"]
         playerHealthBarPos=(15*pixel,15*pixel)
-        enemyHealthBarPos=(1*pixel,7*pixel)
+        enemyHealthBarPos=(2*pixel,8*pixel)
         healthBarWidth=9
         self.gameScreen.blit(self.getHealthBar(healthBarWidth,1,playerHealthFraction),playerHealthBarPos)
         self.gameScreen.blit(self.getHealthBar(healthBarWidth,1,enemyHealthFraction),enemyHealthBarPos)
+
+        #xp bar
+        mon=self.player.curMon
+        if mon:
+            XPSinceLast=mon.XP-mon.getXP()#XP earned since last levelup
+            XPLastToNext=mon.getXP(mon.level+1)-mon.getXP()#XP between last levelup and next levelup
+            XPFraction=(XPSinceLast+0.0)/(XPLastToNext)
+            XPBarBlue=pygame.Rect(playerHealthBarPos[0],playerHealthBarPos[1]+pixel,healthBarWidth*pixel*XPFraction,5)
+            XPBarGray=pygame.Rect(playerHealthBarPos[0]+healthBarWidth*pixel*XPFraction,playerHealthBarPos[1]+pixel,healthBarWidth*pixel*(1-XPFraction),5)
+            pygame.draw.rect(self.gameScreen,(0,50,200),XPBarBlue)
+            pygame.draw.rect(self.gameScreen,(150,150,150),XPBarGray)
+            
+
+        #mon names
+        if self.player.curMon:
+            playerMonNameSurface=self.getTextSurface(self.player.curMon.name)
+            self.gameScreen.blit(playerMonNameSurface,((screenWidth-len(self.player.curMon.name)-1)*pixel,playerHealthBarPos[1]-2*pixel))
+        if self.curBattle.enemy.curMon:
+            enemyMonNameSurface=self.getTextSurface(self.curBattle.enemy.curMon.name)
+            self.gameScreen.blit(enemyMonNameSurface,(enemyHealthBarPos[0],enemyHealthBarPos[1]-2*pixel))
         
         #total mons and mons remaining
         playerMonsUnfainted=[]
         enemyMonsUnfainted=[]
         for mon in self.curBattle.player.team:
-            if mon.tempStats["HP"]>0:
+            if mon.tempStats["HP"]==mon.permStats["HP"]:
+                playerMonsUnfainted.append(2)
+            elif mon.tempStats["HP"]>0:
                 playerMonsUnfainted.append(1)
             else:
                 playerMonsUnfainted.append(0)
         for mon in self.curBattle.enemy.team:
-            if mon.tempStats["HP"]>0:
+            if mon.tempStats["HP"]==mon.permStats["HP"]:
+                enemyMonsUnfainted.append(2)
+            elif mon.tempStats["HP"]>0:
                 enemyMonsUnfainted.append(1)
             else:
                 enemyMonsUnfainted.append(0)
         for i in range(0,len(playerMonsUnfainted)):
-            #change the sprites here when Rob does the art!
-            if playerMonsUnfainted[i]: #unfainted mon, blit regular punkeball
-                ballSprite=cornerBallTL
+            if playerMonsUnfainted[i]==2: #undamaged mon, blit regular punkeball
+                ballSprite=pokeball_team
+            elif playerMonsUnfainted[i]: #damaged mon, blit gray punkeball
+                ballSprite=pokeball_injured
             else: #fainted mon, blit darkened punkeball
-                ballSprite=hashTag
+                ballSprite=pokeball_faint
             self.gameScreen.blit(ballSprite,(playerHealthBarPos[0]+i*1.5*pixel,playerHealthBarPos[1]-pixel))
         for i in range(0,len(enemyMonsUnfainted)):
-            #change the sprites here when Rob does the art!
-            if enemyMonsUnfainted[i]: #unfainted mon, blit regular punkeball
-                ballSprite=cornerBallTL
+            if enemyMonsUnfainted[i]==2: #unfainted mon, blit regular punkeball
+                ballSprite=pokeball_team
+            elif enemyMonsUnfainted[i]:
+                ballSprite=pokeball_injured
             else: #fainted mon, blit darkened punkeball
-                ballSprite=hashTag
+                ballSprite=pokeball_faint
             self.gameScreen.blit(ballSprite,(enemyHealthBarPos[0]+i*1.5*pixel,enemyHealthBarPos[1]-pixel))
             
         #status markers
@@ -1953,7 +1985,7 @@ class screen:
         negBarLength=barLength-posBarLength
         if value>=0.5:
             color=(78,171,24)
-        elif value>=0.1:
+        elif value>=0.2:
             color=(244,232,61)
         else:
             color=(227,85,14)
@@ -1975,6 +2007,12 @@ class screen:
         healthBarSurface.blit(scaledBarMiddle,(pixel*cellsHigh,0))
         return healthBarSurface
 
+    def getTextSurface(self,string):
+        textSurface=pygame.Surface((pixel*len(string),pixel),0,32)
+        for i in range(0,len(string)):
+            charImage=menuSpriteDict[string[i]]
+            textSurface.blit(charImage,(pixel*i,0))
+        return textSurface
 
 #################Generating individual things
 ###### Global variables (semi-permanent)
@@ -2019,6 +2057,10 @@ playerR=pygame.image.load(os.path.join("sprites","player_R.png"))
 worldFGSpriteDict["@_R"]=playerR
 playerD=pygame.image.load(os.path.join("sprites","player_D.png"))
 worldFGSpriteDict["@_D"]=playerD
+
+pokeball_team=pygame.image.load(os.path.join("sprites","pokeball_team.png"))
+pokeball_injured=pygame.image.load(os.path.join("sprites","pokeball_injured.png"))
+pokeball_faint=pygame.image.load(os.path.join("sprites","pokeball_faint.png"))
 
 poisonFlag=pygame.image.load(os.path.join("sprites","flagPsn.png"))
 burnedFlag=pygame.image.load(os.path.join("sprites","flagBrn.png"))
