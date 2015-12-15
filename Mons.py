@@ -398,34 +398,42 @@ class Pidgey(punkemon):
         learnDict={0:gust,5:sandAttack,12:quickAttack,28:wingAttack}#19 whirlwind but that's dumb
         punkemon.__init__(self,"Pidgey",["Flying"],16,level,"medium",[45,40,40,56,35],50,learnDict,name,trainer)
 
+class Diglett(punkemon):
+    def __init__(self,level,name="Diglett",trainer=False):
+        self.evolveStone=False
+        self.evolveLevel=26
+        learnDict={0:scratch,15:growl,19:dig,24:sandAttack,31:slash,40:earthquake}
+        punkemon.__init__(self,"Diglett",["Ground"],50,level,"fast",[55,25,10,95,45],53,learnDict,name,trainer)
+        
+
 class Eevee(punkemon):
     def __init__(self,level,name="Eevee",trainer=False):
         self.evolveLevel=False
         self.evolveStone=["water","fire","thunder"]
         self.evolveDict={"water":"Vaporeon","fire":"Flareon","thunder":"Jolteon"}
         learnDict={0:tackle,1:tailWhip,8:sandAttack,16:growl,23:quickAttack,30:bite,36:focusEnergy,42:takeDown} #add these moves
-        punkemon.__init__(self,"Eevee",["Normal"],16,level,"fast",[55,50,55,55,65],92,learnDict,name,trainer)
+        punkemon.__init__(self,"Eevee",["Normal"],133,level,"fast",[55,50,55,55,65],92,learnDict,name,trainer)
 
 class Jolteon(punkemon):
     def __init__(self,level,name="Jolteon",trainer=False):
         self.evolveStone=False
         self.evolveLevel=False
         learnDict={0:tackle,1:sandAttack,2:quickAttack,3:thunderShock,31:thunderShock,40:thunderWave,42:doubleKick,44:agility,48:pinMissile,54:thunder}
-        punkemon.__init__(self,"Jolteon",["Electric"],16,level,"fast",[65,60,65,130,110],197,learnDict,name,trainer)
+        punkemon.__init__(self,"Jolteon",["Electric"],135,level,"fast",[65,60,65,130,110],197,learnDict,name,trainer)
 
 class Vaporeon(punkemon):
     def __init__(self,level,name="Vaporeon",trainer=False):
         self.evolveStone=False
         self.evolveLevel=False
         learnDict={0:tackle,1:sandAttack,2:quickAttack,3:waterGun,27:quickAttack,31:waterGun,36:auroraBeam,37:tailWhip,40:bite,42:acidArmor,48:mist,54:hydroPump}#add haze maybe
-        punkemon.__init__(self,"Vaporeon",["Water"],16,level,"fast",[65,60,130,65,110],196,learnDict,name,trainer)
+        punkemon.__init__(self,"Vaporeon",["Water"],134,level,"fast",[65,60,130,65,110],196,learnDict,name,trainer)
 
 class Flareon(punkemon):
     def __init__(self,level,name="Flareon",trainer=False):
         self.evolveStone=False
         self.evolveLevel=False
         learnDict={0:tackle,1:sandAttack,2:quickAttack,3:ember,27:quickAttack,31:ember,37:tailWhip,40:bite,42:leer,44:fireSpin,54:flamethrower}#add rage maybe
-        punkemon.__init__(self,"Flareon",["Fire"],16,level,"fast",[130,60,65,65,110],198,learnDict,name,trainer)
+        punkemon.__init__(self,"Flareon",["Fire"],136,level,"fast",[130,60,65,65,110],198,learnDict,name,trainer)
 
 class Derp(punkemon):
     def __init__(self,level,name="Derp",trainer=False):

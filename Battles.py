@@ -114,7 +114,10 @@ class battle:
             elif self.oldPhase=="first attack" or self.oldPhase=="between attacks":
                 self.curPhase="second attack"
             elif self.oldPhase=="second attack" or self.oldPhase=="after attacks":
-                self.switchTo("choose") #That's right, recursion motherfuckas!
+                if (self.player.curMon.status["charging"] or self.player.curMon.status["multiple"]):
+                    self.curPhase="first attack"
+                else:
+                    self.switchTo("choose") #That's right, recursion motherfuckas!
             if self.curPhase=="first attack" or self.curPhase=="second attack":
                 self.curMenu.switchMenu(self.runAttack(),"dialog") #does the damage and whatnot, then return a list of messages explaining what happened
                 self.curAction=self.displayResults

@@ -40,6 +40,9 @@ gust=move("Gust",40,100,35,"Normal",True,False)
 wingAttack=move("Wing Attack",35,100,35,"Flying",False,False)
 fly=move("Fly",90,95,15,"Flying",False,"charging offscreen")#contemplate/add special message
 
+#diglett/dugtrowel
+earthquake=move("Earthquake",100,100,10,"Ground",False,False)
+
 #Hovisquirrel aka vulpix
 roar=move("Roar",0,100,20,"Normal",False,False)##currently does jack shit, make analogous to whirlwind
 confuseRay=move("Confuse Ray",0,100,10,"Ghost",False,"100 confused"," became confused!")
