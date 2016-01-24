@@ -134,9 +134,9 @@ class editorScreen:
                 elif event.key==K_s:
                     self.saveWorldFile() #write this function
                 elif event.key==K_l:
-                    self.loadWorldFile() #write this function
+                    self.loadWorldFile()
                 elif event.key==K_p:
-                    self.setPaddingCharacter()  #write this function
+                    self.setPaddingCharacter()  #do we still need to write this?
                 elif event.key==K_r:
                     self.offset=[0,0]
                 elif event.key==K_m:
@@ -392,11 +392,12 @@ class editorScreen:
             selectedFile+=".py"
         self.curWorldFileName=os.path.join("World files",selectedFile)
         self.curWorldFile=open(self.curWorldFileName,"r+")
-        version=eval(self.curWorldFile.readline())
-        if version==1:
+        self.curWorldVersion=eval(self.curWorldFile.readline())
+        if self.curWorldVersion==1:
             self.readWorldFile1()
         else:
             print "ERROR: Invalid version number"
+        self.curWorldFile.close()
 
     def readWorldFile1(self):
         worldDims=eval(self.curWorldFile.readline())
@@ -406,7 +407,27 @@ class editorScreen:
         curWorldArray=[]
         for line in range(0,worldDims[1]):
             curWorldArray.append(eval(self.curWorldFile.readline()))
-        self.curWorld=world(self,curWorldArray,worldDims[0],worldDims[1],landMonSeed,waterMonSeed,paddingChar)        
+        self.curWorld=world(self,curWorldArray,worldDims[0],worldDims[1],landMonSeed,waterMonSeed,paddingChar)
+
+    def saveWorldFile(self):
+        self.curWorldFile=open(self.curWorldFileName[:-3]+"27.py","w")
+        self.curWorldFile.write(str(self.curWorldVersion)+"\n")
+        self.curWorldFile.write("["+str(self.curWorld.dimx)+","+str(self.curWorld.dimy)+"]\n")
+        if self.curWorld.landMonSeed:
+            line="monSeed("+str(self.curWorld.landMonSeed.ticketDict)+str(self.curWorld.landMonSeed.encounterRate)+")"
+            self.curWorldFile.write(line+"\n")
+        else:
+            self.curWorldFile.write("False\n")
+        if self.curWorld.waterMonSeed:
+            line="monSeed("+str(self.curWorld.waterMonSeed.ticketDict)+str(self.curWorld.waterMonSeed.encounterRate)+")"
+            self.curWorldFile.write(line+"\n")
+        else:
+            self.curWorldFile.write("False\n")
+        self.curWorldFile.write('"'+self.curWorld.paddingChar+'"'+"\n")
+        for line in self.curWorld.permSpriteMap:
+            self.curWorldFile.write(str(line)+"\n")
+        self.curWorldFile.close()
+        
         
 class button:
     def __init__(self,screen,xPos,yPos,imageName="",char="",ground="background",name=False,height=1,width=1):
